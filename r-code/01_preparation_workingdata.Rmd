@@ -1,0 +1,297 @@
+---
+title: "Survey of Ho,Phy, BN"
+author: "Bernd Panassiti"
+date: 'created: 20.11.2013, last modified: `r format(Sys.Date(), format="%d.%m.%Y")`'
+output:
+  pdf_document:
+    fig_caption: yes
+    keep_tex: yes
+    toc: yes
+    toc_depth: 5
+  html_document: default
+  word_document: default
+subtitle: Prepares working data set
+header-includes: \usepackage{graphicx}
+---
+
+## Introduction
+- table 
+            infected/not infected phytoplasma quantity
+all habitat all
+            male
+            female
+            
+vineyard    all
+            male
+            female
+
+
+
+
+```{r setup, include=FALSE}
+library(knitr) # for creating html-file
+opts_knit$set(root.dir='../') # definining working directory; or normalizePath('../')
+```
+
+#### Load settings, libraries and data
+```{r}
+rm(list=ls(all=TRUE))
+source("r-code/00_settings.R")
+source("r-code/00_helper_functions.R")
+
+load(file="data/hyal_altitude_rawdata.RData")
+
+set.seed(2013) # for reproducibility
+```
+
+#### WLqpcr-Dataset without problematic weight/length records
+weight = 1 (e.g. missing abdomen)
+length = 2 (e.g. curved)
+weigth & length = 3
+```{r}
+# incomplete weights and lengths discarded
+WLqpcr<-qpcr.alt[-which(qpcr.alt[,5]>0),] # discard incomplete weights and length
+WLqpcr<-WLqpcr[,-5]
+
+# discard individuals with incomplete values for weight
+Wqpcr<-qpcr.alt[-which(qpcr.alt[,5]==1 | qpcr.alt[,5]==3),] # discard incomplete weights
+Wqpcr<-Wqpcr[,-5]
+
+# discard individuals with incomplete values for length
+Lqpcr<-qpcr.alt[-which(qpcr.alt[,5]==2 | qpcr.alt[,5]==3),] # discard incomplete lengths
+Lqpcr<-Lqpcr[,-5]
+```
+
+
+### Phytoplasma quantity
+```{r}
+#SWLqpcrA<-SWLqpcr[which(SWLqpcr$phytoplasma_type=='a'),] # only type a presences
+
+# na need to be replaced with 0 otherwise not used in regression
+
+# no weight & length
+WLqpcrRelQuant <- WLqpcr
+WLqpcrRelQuant[which(is.na(WLqpcrRelQuant$phytoplasma_type)),8:10] <- 0
+WLqpcrRelQuantA<-WLqpcrRelQuant[which(WLqpcrRelQuant$phytoplasma_type!='b'),] # presences of type a and all absences
+
+# no weight
+WqpcrRelQuant <- Wqpcr
+WqpcrRelQuant[which(is.na(WqpcrRelQuant$phytoplasma_type)),8:10] <- 0
+WqpcrRelQuantA<-WqpcrRelQuant[which(WqpcrRelQuant$phytoplasma_type!='b'),] # presences of type a and all absences
+
+# no length
+LqpcrRelQuant <- Lqpcr
+LqpcrRelQuant[which(is.na(LqpcrRelQuant$phytoplasma_type)),8:10] <- 0
+LqpcrRelQuantA<-LqpcrRelQuant[which(LqpcrRelQuant$phytoplasma_type!='b'),] # presences of type a and all absences
+```
+
+### BnHoPhy
+
+```{r}
+# > unique(bn.alt$site)
+# [1] 90          94          93          87          88          81          82         
+# [8] 83          84          85          99          101         100         97         
+# [15] 96          54          55          2           5           417-418     417        
+# [22] 416-417-418 416         416-417     416-418     111         40          39         
+# [29] 104         106         510         36          36-37       37          541        
+# [36] 27          27-28       28          29          30          31          33         
+# [43] 34          511         261         58          57          59          60         
+# [50] 66          61          64          64-310      65          70          70-311     
+# [57] 69          68          63          62          307         305         23         
+# [64] 583         297         264         44          45          43          72         
+# [71] 76          15          107         109
+
+length(unique(bn.alt$site))
+# [1] 74
+
+# sites need to be separated to combine with vector and phytoplasma
+id <- c(90,94,93,87,88,81,82,83,84,85,99,101,100,97,96,54,55,2,5,417,416,111,40,39,104,106,510,
+        36,37,541,27,28,29,30,31, 33,34, 511,261,58,57,59, 60,66,61,64, 65,70,69,68,63,62,307,
+        305,23,583,297,264,44,45,43,72,76,15,107,109,
+        # combined sites
+        70,311,27,28,36,37,417,418,416,417,418,64,310)
+id <- unique(id)
+length(id)
+# [1] 69 # less sites because of combinations
+
+
+
+# get total and infected plants for each site
+idIndividualSites <- c(90,94,93,87,88,81,82,83,84,85,99,101,100,97,96,54,55,2,5,417,416,111,40,39,104,106,510,
+        36,37,541,27,28,29,30,31, 33,34, 511,261,58,57,59, 60,66,61,64, 65,70,69,68,63,62,307,
+        305,23,583,297,264,44,45,43,72,76,15,107,109)
+ill <- rep(0,length(idIndividualSites))
+N   <- rep(0,length(idIndividualSites))
+
+df2 <- data.frame(idIndividualSites,ill,N)
+
+df <- bn.alt
+
+
+BnBinomial <- function(df,df2){
+  for (i in 1:nrow(df2)){
+    illVines <- df[df$site==df2[i,1],2]
+    df2[i,2] <- length(illVines[as.numeric(illVines)>1])
+    df2[i,3] <- length(illVines)
+  }
+  return(df2)
+}
+
+BnInfect <- BnBinomial(df,df2)
+
+
+
+# created in file "01_preparation_workingdata_BnSites.Rmd"
+idCombinedSites <- list(
+                     c(64, 0, 677),
+                     c(310,0, 271),
+                     c(70,42,1423),
+                     c(311,34,1188),
+                     c(27,30,2135),
+                     c(28,12,1051),
+                     c(36,0,2217),
+                     c(37,0,2063),
+                     c(416,9,1325),
+                     c(417,6,1350),
+                     c(418,11,1446))
+df3 <- do.call(rbind.data.frame, idCombinedSites)
+colnames(df3) <- colnames(BnInfect) 
+
+tmp <- rbind(BnInfect,df3)
+BnInfect <- tmp[order(tmp[,1]),]
+colnames(BnInfect)[1] <- "id"
+
+library(plyr)
+colnames(Lqpcr)[1] <- "id"
+df <- join(Lqpcr,BnInfect, type="left")
+BnHoPhy <- df[!is.na(df$ill),]
+
+
+
+```
+
+
+
+
+### Barplots - Altitudinal distribution of Ho, Phy, BN in Baden
+#### Barplot - Ho, Phy
+```{r}
+heights<-c("0-100","100-200","200-300","300-400","400-500","500-600","600-700",">700")
+
+# files needed
+# hyal.alt -> Ho occurrence across Baden
+# qpcr.alt -> Phytoplasma occurrence across Baden
+
+hyal.aggdata <-table(hyal.alt$pres,hyal.alt$alt.level)
+qpcr.aggdata <-table(qpcr.alt$phytoplasma,qpcr.alt$alt.level) # not taken into account missing data for length and weight
+### need to add additional heights
+#qpcr.aggdata
+qpcr.aggdata2<-cbind(matrix(0,nrow=2),qpcr.aggdata,matrix(0,nrow=2))
+colnames(qpcr.aggdata2)  <- c(100,200,300,400,500,600,700,9999)
+
+#aggdata<-aggdata[,-8] # delete altitude with no incidences above upper range limit
+hyal.occurr<-round(hyal.aggdata[2,]/apply(hyal.aggdata,2,sum),3)
+qpcr.occurr<-round(qpcr.aggdata2[2,]/apply(qpcr.aggdata2,2,sum),3)
+qpcr.occurr[c(1,8)]<-0 # needed to create bars
+```
+
+
+
+#### Barplot - Ho, Phy, BN
+```{r}
+# Hyalesthes obsoletus
+BnHo<-data.frame(matrix(0,ncol=4,nrow=nrow(BnInfect)))
+colnames(BnHo)<-c("id","pres","altitude","alt.level")
+BnHo<-hyal.alt[hyal.alt$id%in%BnInfect$id,]
+nrow(BnHo)
+# [1] 69
+
+
+BnHo$alt.level<-0
+#categorize altitude
+BnHo[which(BnHo$altitude>100 & BnHo$altitude<=150),4]<-150
+BnHo[which(BnHo$altitude>150 & BnHo$altitude<=200),4]<-200
+BnHo[which(BnHo$altitude>200 & BnHo$altitude<=250),4]<-250
+BnHo[which(BnHo$altitude>250 & BnHo$altitude<=300),4]<-300
+BnHo[which(BnHo$altitude>300 & BnHo$altitude<=350),4]<-350
+BnHo[which(BnHo$altitude>350 & BnHo$altitude<=400),4]<-400
+
+BnQpcr<-data.frame(matrix(0,ncol=12,nrow=length(Lqpcr[Lqpcr$site%in%BnInfect$id,1])))
+colnames(BnQpcr)<-c("id",colnames(Lqpcr)[2:12])
+BnQpcr<-qpcr.alt[qpcr.alt$site%in%BnInfect$id,]
+
+BnQpcr$alt.level<-0
+#categorize altitude
+BnQpcr[which(BnQpcr$altitude>100 & BnQpcr$altitude<=150),13]<-150
+BnQpcr[which(BnQpcr$altitude>150 & BnQpcr$altitude<=200),13]<-200
+BnQpcr[which(BnQpcr$altitude>200 & BnQpcr$altitude<=250),13]<-250
+BnQpcr[which(BnQpcr$altitude>250 & BnQpcr$altitude<=300),13]<-300
+BnQpcr[which(BnQpcr$altitude>300 & BnQpcr$altitude<=350),13]<-350
+BnQpcr[which(BnQpcr$altitude>350 & BnQpcr$altitude<=400),13]<-400
+
+BnHo.aggdata <-table(BnHo$pres,BnHo$alt.level)
+Bn.aggdata <-table(bn.alt$ill,bn.alt$alt.level)
+BnQpcr.aggdata <-table(BnQpcr$phytoplasma,BnQpcr$alt.level)
+### need to add additional heights for Phytoplasma data
+BnQpcr.aggdata2<-cbind(BnQpcr.aggdata,matrix(0,nrow=2))
+colnames(BnQpcr.aggdata2)  <- c(200,250,300,350,400)
+
+#aggdata<-aggdata[,-8] # delete altitude with no incidences above upper range limit
+BnHo.occurr<-round(BnHo.aggdata[2,]/apply(BnHo.aggdata,2,sum),3)
+Bn.occurr<-round(Bn.aggdata[2,]/apply(Bn.aggdata,2,sum),3)
+Bn.occurr<-Bn.occurr*10
+BnQpcr.occurr<-round(BnQpcr.aggdata2[2,]/apply(BnQpcr.aggdata2,2,sum),3)
+BnQpcr.occurr[c(5)]<-0 # needed to create bars
+```
+
+#### Relation between sex and gender
+```{r}
+sex.aggdata <-table(qpcr.alt$sex,qpcr.alt$alt.level)
+# need to add additional heights for qpcr.aggdata
+sex.aggdata2<-cbind(matrix(0,nrow=2),sex.aggdata,matrix(0,nrow=2))
+colnames(sex.aggdata2)  <- c(100,200,300,400,500,600,700,9999)
+
+#aggdata<-aggdata[,-8] # delete altitude with no incidences above upper range limit
+sex.occurr<-round(sex.aggdata2[1,]/apply(sex.aggdata2,2,sum),3)
+sex.occurr[c(1,8)]<-0 # needed to create bars
+
+
+sex.occurrPlot<-sex.occurr[-c(1,8)]
+qpcr.occurrPlot<-qpcr.occurr[-c(1,8)]
+heightsPlot<-heights[-c(1,8)]
+```
+
+
+
+
+### Save Workingdata
+```{r save}
+save(
+# Barplot for entire Baden region - Male and Female
+hyal.occurr,qpcr.occurr,qpcr.aggdata2,
+
+# Altitudinal distribution of Ho, Phy, BN in Baden 
+BnHo,BnQpcr,
+BnHo.occurr,BnQpcr.occurr,Bn.occurr, 
+BnHo.aggdata,BnQpcr.aggdata,BnQpcr.aggdata2,Bn.aggdata,
+
+# Relation between Gender and infection?
+sex.occurrPlot,qpcr.occurrPlot,sex.aggdata,heightsPlot,
+
+# Comparison incidence Ho vs. Phytoplasma - Linear Regression
+#Ho,HoFit,HoR,HoP,
+#QpcrAltitudes,Qpcr,QpcrFit,QpcrR,QpcrP,
+# used for comparison of insect proportions (Dormann, p. 49)
+
+# Phytoplasma infection and relative quantification
+WLqpcr,WLqpcrRelQuantA,WLqpcrRelQuant, # incomplete weights discarded
+Wqpcr,WqpcrRelQuantA,WqpcrRelQuant, # incomplete weights discarded
+Lqpcr,LqpcrRelQuantA,LqpcrRelQuant, # incomplete lenght discarded
+     qpcr,
+     heights,                              # definition of altitude levels
+     hyal.aggdata,qpcr.aggdata,            # data for altitude levels aggregated
+     hyal.alt,qpcr.alt,bn.alt,             # original input data
+    BnInfect, BnHoPhy,
+     file="data/hyal_altitude_workingdata.RData")
+```
+

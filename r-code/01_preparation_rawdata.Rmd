@@ -1,0 +1,159 @@
+date: 20.11.2013; last modified 29.01.2015
+author: Bernd Panassiti
+
+Rawdata preparation for altitudinal survey
+========================================================
+
+```{r setup}
+library(knitr) # for creating html-file
+opts_knit$set(root.dir='../') # definining working directory; or normalizePath('../')
+```
+
+
+#### Load settings and libraries
+```{r}
+rm(list=ls(all=TRUE))
+source("r-code/00_settings.R")
+source("r-code/00_helper_functions.R")
+
+# to import ".xls"-files
+library(XLConnect) # import excel-files; format MUST be ".xls", otherwise: "Error: OutOfMemoryError (Java): Java heap space"
+```
+
+#### Connection with PostgreSQL database
+```{r}
+# library(RODBC)
+# try(odbcCloseAll())
+# ob.can<-odbcConnect("mydb1",believeNRows=FALSE)
+# usage, e.g.: hyal<-sqlFetch(ob.can, "hyal_pres")
+
+hyal.altitude.orig<-dbGetQuery(con,"select id, altitude,hyal_pres,easting,northing,region FROM hyal_pres ORDER BY id")
+# hyal.altitude.orig<-readWorksheetFromFile("data/Ho_qPCR.xls",1) # spreadsheet "ho"
+# writeWorksheetToFile("data/3_Durchseuchung/Rasterkartierung_hyal.xls",data=hyal.altitude.orig,sheet="Ho")
+
+# > hyal.altitude.orig[which(is.na(hyal.altitude.orig[,3])==TRUE),]
+# id altitude hyal_pres easting northing            region
+# 954   954      312        NA 3398209  5269742          Loerrach
+# 1009 1009      112        NA 3470671  5456306 Rastatt_Karlsruhe
+# 1069 1069      459        NA 3496571  5299557          Bodensee
+# 1105 1105      103        NA 3444493  5421954 Rastatt_Karlsruhe
+# 1106 1106      107        NA 3449748  5422568 Rastatt_Karlsruhe
+```
+
+#### Hyalesthes obsoletus data
+```{r}
+hyal.altitude<-na.omit(hyal.altitude.orig)
+alt.level<-rep(0,nrow(hyal.altitude))
+hyal.alt<-data.frame(hyal.altitude$id, hyal.altitude$hyal_pres,as.numeric(hyal.altitude$altitude),alt.level)
+colnames(hyal.alt)<-c("id","pres","altitude","alt.level")
+
+
+#categorize altitude
+hyal.alt[which(hyal.alt$altitude<=100),4]<-100
+hyal.alt[which(hyal.alt$altitude>100 & hyal.alt$altitude<=200),4]<-200
+hyal.alt[which(hyal.alt$altitude>200 & hyal.alt$altitude<=300),4]<-300
+hyal.alt[which(hyal.alt$altitude>300 & hyal.alt$altitude<=400),4]<-400
+hyal.alt[which(hyal.alt$altitude>400 & hyal.alt$altitude<=500),4]<-500
+hyal.alt[which(hyal.alt$altitude>500 & hyal.alt$altitude<=600),4]<-600
+hyal.alt[which(hyal.alt$altitude>600 & hyal.alt$altitude<=700),4]<-700
+hyal.alt[which(hyal.alt$altitude>700),4]<-9999 # everything above 700m
+
+hyal.alt$altitude <- as.numeric(hyal.alt$altitude)
+hyal.alt$pres <- as.factor(hyal.alt$pres)
+```
+
+#### Phytoplasma data
+```{r}
+# 1) import VOG data
+qpcr.xls<-readWorksheetFromFile("data/Ho_qPCR.xls",2) # spreadsheet "qpcr"
+
+qpcr<-qpcr.xls
+
+qpcr$phytoplasma<-0
+for (i in 1:nrow(qpcr)){
+  if (qpcr$type_a[i] == 1 || qpcr$type_b[i] == 1)
+    qpcr$phytoplasma[i] <- 1
+}
+
+
+
+# export to excel and PostgreSQL
+writeWorksheetToFile("data/3_Durchseuchung/Rasterkartierung_qpcr.xls",data=qpcr,sheet="qpcr")
+SELECT DropGeometryTable('hyal_qpcr_site');
+dbWriteTable(con,"hyal_qpcr_site",qpcr)   # info about phytoplasma occurrence for each site
+COMMENT ON TABLE hyal_qpcr_site IS 'qPCR results for Ho data, created 27.12.2014';
+
+# Query to combine phytoplasma data with location data
+ALTER TABLE hyal_qpcr_site ADD COLUMN altitude VARCHAR(6);
+UPDATE hyal_qpcr_site as a SET altitude =(SELECT b.altitude FROM hyal_pres as b WHERE a.site=b.id);
+SELECT AddGeometryColumn('public','hyal_qpcr_site', 'the_geom', 31467, 'POINT', 2,true );
+UPDATE hyal_qpcr_site as a SET the_geom =(SELECT b.the_geom FROM hyal_pres as b WHERE a.site=b.id);
+
+
+
+
+qpcr.alt<-dbGetQuery(con,"select site, sex,length,weight,problem_weight_length,type_a, type_b, phytoplasma, rel_quant,rel_quant_sd,phytoplasma_type,altitude FROM hyal_qpcr_site ORDER BY site")
+qpcr.alt$alt.level<-0
+
+
+#categorize altitude
+qpcr.alt[which(qpcr.alt$altitude<=100),13]<-100
+qpcr.alt[which(qpcr.alt$altitude>100 & qpcr.alt$altitude<=200),13]<-200
+qpcr.alt[which(qpcr.alt$altitude>200 & qpcr.alt$altitude<=300),13]<-300
+qpcr.alt[which(qpcr.alt$altitude>300 & qpcr.alt$altitude<=400),13]<-400
+qpcr.alt[which(qpcr.alt$altitude>400 & qpcr.alt$altitude<=500),13]<-500
+qpcr.alt[which(qpcr.alt$altitude>500 & qpcr.alt$altitude<=600),13]<-600
+qpcr.alt[which(qpcr.alt$altitude>600 & qpcr.alt$altitude<=700),13]<-700
+qpcr.alt[which(qpcr.alt$altitude>700),13]<-9999 # everything above 700m
+
+qpcr.alt$altitude <- as.numeric(qpcr.alt$altitude)
+qpcr.alt$sex <- as.factor(qpcr.alt$sex)
+qpcr.alt$phytoplasma <- as.factor(qpcr.alt$phytoplasma)
+```
+
+#### Bois noir data
+```{r}
+# get dat from boisnoir model
+load("~/Projects/PhD_thesis/Chapters/Boisnoir/trunk/data/predictors_response2012_final_input_data.RData")
+
+#alt.s<-cbind(bn.pred.BeforeScale$altitude[1:10],bn.pred$altitude[1:10],(bn.pred$altitude[1:10]*bn.pred.scaling[1,2])+bn.pred.scaling[1,1])
+
+bn<-data.frame(subset(xy.reg,select=c("id","ill","site","altitude.r")))
+
+# backscaling for altitude
+bn.alt<-cbind(bn[,1:3],(bn$altitude.r*bn.pred.scaling[1,2])+bn.pred.scaling[1,1])
+colnames(bn.alt)[4]<-"altitude"
+
+nrow(bn.alt) # how many grapevines
+#[1] 105489
+
+
+bn.alt$alt.level<-0
+#categorize altitude
+bn.alt[which(bn.alt$altitude>100 & bn.alt$altitude<=150),5]<-150
+bn.alt[which(bn.alt$altitude>150 & bn.alt$altitude<=200),5]<-200
+bn.alt[which(bn.alt$altitude>200 & bn.alt$altitude<=250),5]<-250
+bn.alt[which(bn.alt$altitude>250 & bn.alt$altitude<=300),5]<-300
+bn.alt[which(bn.alt$altitude>300 & bn.alt$altitude<=350),5]<-350
+bn.alt[which(bn.alt$altitude>350 & bn.alt$altitude<=400),5]<-400
+
+bn.alt$ill <- as.factor(bn.alt$ill)
+
+# bois noir diseased grapevines
+range(bn.alt[bn.alt[,2]==1,4])
+# [1] 193.9960 371.9931
+```
+
+#### Save rawdata
+```{r}
+save(hyal.altitude.orig,              # imported data from PostGIS database: id,altitude,hyal_pres,region
+     hyal.alt,                        # derived from hyal.altitude, contains altitude levels
+     qpcr.xls,                        # imported excel file with qPCR and morphology results
+     qpcr,                            # without inconsitent qPCR results and wrongly identified species
+     # consolidatePhytoplasma,        # function to consolidate several qPCR's per site
+     qpcr.alt,                        # phytoplasma data categorized for different altitudes
+     bn.pred,xy.reg,bn.pred.scaling,  # BN input data
+     bn.alt,                          # BN with backscaled altitudes
+     file="data/hyal_altitude_rawdata.RData")
+```
+
