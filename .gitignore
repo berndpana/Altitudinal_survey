@@ -36,3 +36,10 @@ r-code/figure/*
 r-code/03_stat_analyses.tex
 
 r-code/02_desc_analyses.tex
+.Rproj.user
+
+data/Kartierung2.xls
+
+r-code/01_preparation_rawdata.Rmd
+
+r-code/01_preparation_workingdata.Rmd

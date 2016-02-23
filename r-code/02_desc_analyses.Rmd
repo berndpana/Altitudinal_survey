@@ -126,11 +126,11 @@ Da der empirische X-squared Wert (15.4) erheblich groesser ist als X-squared(1,9
 ```{r BN summary}
 ## Overview about all survey grapevines
 nrow(bn.alt) # how many grapevines were surveyed
-range(round(bn.alt$altitude)) # Altitude range of survey grapevines
+range(round(bn.alt$altitude)) # Elevation range of survey grapevines
 
 ## Overview about infected grapevines
 nrow(bn.alt[bn.alt[,2]==1,])
-range(round(bn.alt[bn.alt[,2]==1,4])) # Altitude range of infected grapevines
+range(round(bn.alt[bn.alt[,2]==1,4])) # Elevation range of infected grapevines
 ```
 
 Prevalence of BN disease in grapevines is `r nrow(bn.alt[bn.alt[,2]==1,])/nrow(bn.alt)`.
@@ -283,7 +283,7 @@ bp<-barplot(as.matrix(t(cbind(hyal.occurr,qpcr.occurr))),beside=T,
             horiz=T,xlim=c(0,1),yaxt="n",cex.axis=1.5,col=c("grey20","grey50"))
 
 text(rep(-0.012,length(names(hyal.occurr))),bp[1,]+0.5,heights,adj=1,xpd=T,cex=1)
-text(-0.2,12,"altitude a.s.l. (m)",xpd=T,srt=90,cex=1.5)
+text(-0.2,12,"Elevation a.s.l. (m)",xpd=T,srt=90,cex=1.5)
 text(0.5,-5,"Incidence",xpd=T,cex=1.5)
 for (v in 1:length(ho.annotation)){text(ho.x[v],ho.y[v],bquote(N[v] ~ " = "~ .(ho.annotation[v])), adj=0,cex=0.8)}
 for (p in 1:length(phy.annotation)){text(phy.x[p],phy.y[p],bquote(N[p] ~ " = "~ .(phy.annotation[p])),adj=0,cex=0.8)}
@@ -323,7 +323,7 @@ bp<-barplot(as.matrix(t(cbind(BnHo.occurr,BnQpcr.occurr,Bn.occurr))),beside=T,ho
 
 BnHeights<-c("150-200","200-250","250-300","300-350","350-400")
 text(rep(-0.012,length(names(BnHo.occurr))),bp[1,]+0.5,BnHeights,adj=1,xpd=T,cex=1)
-text(-0.2,12,"altitude a.s.l. (m)",xpd=T,srt=90,cex=1.5)
+text(-0.2,12,"Elevation a.s.l. (m)",xpd=T,srt=90,cex=1.5)
 text(0.5,-3,"Incidence",xpd=T,cex=1.5)
 for (v in 1:length(ho.annotation)){text(ho.x[v],ho.y[v],bquote(N[v] ~ " = "~ .(ho.annotation[v])), adj=0,cex=0.8)}
 for (p in 1:length(phy.annotation)){text(phy.x[p],phy.y[p],bquote(N[p] ~ " = "~ .(phy.annotation[p])),adj=0,cex=0.8)}
@@ -344,7 +344,7 @@ sex.annotation<-as.vector(apply(sex.aggdata,2,sum))
 sex.x <- c(sex.occurrPlot+0.01,length(names(sex.occurrPlot)))
 sex.y <- c(bp[1,]+0.5)
 text(rep(-0.012,length(names(sex.occurrPlot))),bp[1,]+0.5,heightsPlot,adj=1,xpd=T,cex=1)
-text(-0.2,9,"altitude a.s.l. (m)",xpd=T,srt=90,cex=1.5)
+text(-0.2,9,"Elevation a.s.l. (m)",xpd=T,srt=90,cex=1.5)
 text(0.5,-3,as.expression(bquote(~"Sex ratio"~italic(vs.)~"Incidence")),xpd=T,cex=1.5)
 for (v in 1:length(sex.annotation)){text(sex.x[v],sex.y[v],bquote(N ~ " = "~ .(sex.annotation[v])), adj=0,cex=0.8,xpd = TRUE)}
 legend(0.6,15,c(as.expression(bquote(italic(Ca.)~"Phytoplasma" ~ "solani")),bquote("Sex ratio of" ~italic('H. obsoletus'))),bty="n",fill=c("grey80","grey30"))
