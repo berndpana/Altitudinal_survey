@@ -1,22 +1,22 @@
 ---
-title: "Survey of Ho,Phy, BN"
+title: "Survey of *Hyalesthes obsoletus*, '*Ca.* Phytoplasma solani' and the Bois Noir disease"
 author: "Bernd Panassiti"
 date: 'created: 20.11.2013, last modified: `r format(Sys.Date(), format="%d.%m.%Y")`'
 output:
+  html_document: default
   pdf_document:
     fig_caption: yes
     keep_tex: yes
     toc: yes
     toc_depth: 5
-  html_document: default
   word_document: default
-subtitle: Descriptive analyses Ho Phytoplasma infection and relative quantities
+subtitle: Descriptive analyses
 header-includes: \usepackage{graphicx}
 ---
 
 
 ## Introduction
-This script contains summary statistics and investigates altitudinal distribution.
+This script contains summary statistics and investigates the elevational distribution.
 
 
 ```{r setup, include=FALSE, warnings=FALSE}
@@ -41,22 +41,71 @@ library(graphics) # sunflower
 library(PresenceAbsence)
 library(memisc) # mtable
 library(XLConnect) # writeWorksheetToFile
-load(file="data/hyal_altitude_workingdata.RData")
+library(dplyr)
+load(file="data/ho_qpcr_bn_survey_workingdata.RData")
 
 set.seed(2013) # for reproducibility
 ```
 
 
+#### WLqpcr-Dataset without problematic weight/length records
+weight = 1 (e.g. missing abdomen)
+length = 2 (e.g. curved)
+weigth & length = 3
+```{r}
+# incomplete weights and lengths discarded
+df     <- hoSurveySitesQpcr
+df1    <- df[-which(is.na(df$length)),]
+WLqpcr <-df1[-which(df1$problem_weight_length>0),] # discard incomplete weights and length
 
-## Summary statistics
-### Summary statistics - Ho
-
-
-```{r hist_body_length}
 # nrow(WLqpcr[WLqpcr$sex=="m",])
 # # [1] 293
 # nrow(WLqpcr[WLqpcr$sex=="w",])
 # # [1] 396
+```
+
+
+
+
+
+
+## Summary statistics of *H. obsoletus*
+```{r Ho_presence, echo=FALSE}
+#HoSurvey<-readWorksheetFromFile("data/Ho_qPCR.xls",4)
+df <- hoSurvey
+
+dfSumAllyears <- df %>% group_by(site_id,year=as.numeric(format(hoSurvey$date, "%Y"))) %>% summarise(hoCount=sum(ho_pres))
+dfSumPresAllYears <- dfSumAllyears %>% group_by(year) %>% summarise(hoNtotal=n(),hoAbscence=sum(hoCount==0),hoPresence=sum(hoCount>0),hoIncidence=round(sum(hoCount>0)/n(),2));dfSumPresAllYears
+```
+
+
+
+
+
+```{r}
+# in some locations with insects, no collection was carried out -> 99999 
+HoAbund2010 <- na.omit(as.numeric(hoSurvey$Ho_abund_2010))
+HoAbund2010 <- HoAbund2010[!HoAbund2010>1000]
+
+HoAbund2011 <- na.omit(as.numeric(hoSurvey$Ho_abund_2011))
+HoAbund2011 <- HoAbund2011[!HoAbund2011>1000]
+
+HoAbund2012 <- na.omit(as.numeric(hoSurvey$Ho_abund_2012))
+HoAbund2012 <- HoAbund2012[!HoAbund2012>1000]
+
+HoAbund2013 <- na.omit(as.numeric(hoSurvey$Ho_abund_2013))
+```
+
+
+#### Abundance of *H. obsoletus*  
+* 2007, 2008, 2009: not recorded;  
+* 2010: `r sum(HoAbund2010)`;  
+* 2011: `r sum(HoAbund2011)`;  
+* 2012: `r sum(HoAbund2012)`;  
+* 2013: `r sum(HoAbund2013)`  
+
+#### Body size of *H. obsoletus*
+```{r hist_body_length}
 BSg <- ggplot(WLqpcr)
 
 BSgAll<-BSg+
@@ -105,11 +154,12 @@ print(BSgGender, vp = subplot(2, 1))
 
 \newpage
 
-### Summary statistics - Phy
+## Summary statistics of '*Ca.* Phytoplasma solani'
 ```{r Phy summary,echo=TRUE}
+df <- hoSurveySitesQpcr
 # display how many males and females are infected
-table(qpcr[qpcr[,8]==1,3,]) # type a
-table(qpcr[qpcr[,9]==1,3,]) # type b
+table(df[df$type_a==1,"sex"]) # type a
+table(df[df$type_b==1,"sex"]) # type b
 
 # Chi-square goodness-of-fit test
 # Observed = expected sex ratio
@@ -119,21 +169,26 @@ expected<-rep(sum(table(WLqpcr$sex))/2,2) # expected frequencies
 chisq.test(observed,p=expected/sum(table(WLqpcr$sex)))
 ```
 
-Da der empirische X-squared Wert (15.4) erheblich groesser ist als X-squared(1,95%)=3.84, wird H0 verworfen und H1 akzeptiert:  
+Da der empirische X-squared Wert (16) erheblich groesser ist als X-squared(1,95%)=3.84, wird H0 verworfen und H1 akzeptiert:  
 -> Die Haeufigkeiten in Bezug auf Phytoplasmeninfektionen fuer maennliche und weibliche Insekten sind nicht gleichverteilt.  
 
-### Summary statistics - BN
-```{r BN summary}
+
+
+
+### Summary statistics - Bois Noir
+```{r BN summary, results='hide'}
 ## Overview about all survey grapevines
-nrow(bn.alt) # how many grapevines were surveyed
-range(round(bn.alt$altitude)) # Elevation range of survey grapevines
+df <- hoBn
+nrow(df)                   # how many grapevines were surveyed
+range(round(df$elevation)) # Elevation range of survey grapevines
 
 ## Overview about infected grapevines
-nrow(bn.alt[bn.alt[,2]==1,])
-range(round(bn.alt[bn.alt[,2]==1,4])) # Elevation range of infected grapevines
+nrow(df[df[,2]==1,])          # how many infected grapes
+range(round(df[df[,2]==1,4])) # Elevation range of infected grapevines
 ```
 
-Prevalence of BN disease in grapevines is `r nrow(bn.alt[bn.alt[,2]==1,])/nrow(bn.alt)`.
+How many grapevines were surveyed: `r nrow(hoBn)`.   
+Prevalence of BN disease in grapevines is `r nrow(hoBn[bn.alt[,2]==1,])/nrow(hoBn)`.
 
 \newpage
 
@@ -152,7 +207,7 @@ HoQpcrBnSum[,2] <- rep(c("all","male","female"),2)
 
 ```{r summary_table_allsites, include=FALSE}
 # which dataframe?
-dfInput <- qpcr
+dfInput <- hoSurveySitesQpcr
 # ALLsites ALLgender incidence - incidenceTypeA - incidenceTypB
 df <- dfInput 
 HoQpcrBnSum[1,8] <- nrow(df)
@@ -195,7 +250,7 @@ HoQpcrBnSum[3,7] <- NumToString(sd(na.omit(df$rel_quant))) # RelQuantSd
 
 ```{r summary_table_vineyards, include=FALSE}
 # which dataframe?
-dfInput <- BnQpcr
+dfInput <- BnHoQpcr
 # ALLsites ALLgender incidence - incidenceTypeA - incidenceTypB
 df <- dfInput
 HoQpcrBnSum[4,8] <- nrow(df)
@@ -249,28 +304,35 @@ HoQpcrBnSum[6,7] <- NumToString(sd(na.omit(df$rel_quant))) # RelQuantSd
 ```{r summary_table_output}
 kable(HoQpcrBnSum)
 writeWorksheetToFile(paste("results/",today,"_HoQpcrBnSum.xls"),data=HoQpcrBnSum,sheet="HoQpcrBnSum")
-
 ```
+
+
+
+
+
+
+
+
 
 
 \newpage
 
-## Altitudinal distribution
+## Elevational distribution
 ```{r, include=FALSE}
 #par(mar=c(8,10,2,3),las=2)
-bp<-barplot(as.matrix(t(cbind(hyal.occurr,qpcr.occurr))),beside=T,
+bp<-barplot(as.matrix(t(cbind(ho.occurr,qpcr.occurr))),beside=T,
             horiz=T,xlim=c(0,1),yaxt="n",cex.axis=1.5,col=c("grey20","grey50","grey80"))
 ```
 
-### Altitudinal distribution of Ho and Phy in Baden 
-```{r Altitudinal_distribution_Ho_Phy,fig.width=9,fig.height=7}
+### Elevational distribution of Ho and Phy in Baden 
+```{r Elevational_distribution_Ho_Phy,fig.width=9,fig.height=7}
 # ho
-ho.annotation<-as.vector(apply(hyal.aggdata,2,sum))
-ho.x <- c(hyal.occurr+0.01,length(names(hyal.occurr)))
+ho.annotation<-as.vector(apply(ho.aggdata,2,sum))
+ho.x <- c(ho.occurr+0.01,length(names(ho.occurr)))
 ho.y <- c(bp[1,]+0.04)
 
 # phytoplasma
-phy.annotation<-as.vector(apply(qpcr.aggdata2,2,sum))
+phy.annotation<-as.vector(apply(qpcr.aggdata,2,sum))
 phy.x<-c(qpcr.occurr+0.01,length(names(qpcr.occurr)))
 phy.y<-c(bp[2,]+0.04)
 
@@ -279,10 +341,10 @@ phy.y<-c(bp[2,]+0.04)
 #ho.annotation <-c(9,"240; b", "365; b","200; a","164; a",69,27,44)
 #phy.annotation<-c(0,"45; a",  "103; a","39; a" ,"6; a",1,2,0)
 par(mar=c(8,10,2,3))
-bp<-barplot(as.matrix(t(cbind(hyal.occurr,qpcr.occurr))),beside=T,
+bp<-barplot(as.matrix(t(cbind(ho.occurr,qpcr.occurr))),beside=T,
             horiz=T,xlim=c(0,1),yaxt="n",cex.axis=1.5,col=c("grey20","grey50"))
 
-text(rep(-0.012,length(names(hyal.occurr))),bp[1,]+0.5,heights,adj=1,xpd=T,cex=1)
+text(rep(-0.012,length(names(ho.occurr))),bp[1,]+0.5,heights,adj=1,xpd=T,cex=1)
 text(-0.2,12,"Elevation a.s.l. (m)",xpd=T,srt=90,cex=1.5)
 text(0.5,-5,"Incidence",xpd=T,cex=1.5)
 for (v in 1:length(ho.annotation)){text(ho.x[v],ho.y[v],bquote(N[v] ~ " = "~ .(ho.annotation[v])), adj=0,cex=0.8)}
@@ -293,8 +355,8 @@ legend(0.6,20,x.intersp = 0.5,c(bquote(italic(Ca.)~ Phytoplasma ~ solani),expres
 
 \newpage
 
-### Altitudinal distribution of Ho, Phy, BN in vineyards in Baden
-```{r Altitudinal_distribution_Ho_Phy_BN,fig.width=9,fig.height=7}
+### Elevational distribution of Ho, Phy, BN in vineyards in Baden
+```{r Elevational_distribution_Ho_Phy_BN,fig.width=9,fig.height=7}
 par(mar=c(8,10,2,3))
 bp<-barplot(as.matrix(t(cbind(BnHo.occurr,BnQpcr.occurr,Bn.occurr))),beside=T,horiz=T,xlim=c(0,1),yaxt="n",cex.axis=1.5,col=c("grey20","grey50","grey80"))
 
@@ -305,12 +367,12 @@ ho.x <- c(BnHo.occurr+0.01,length(names(BnHo.occurr)))
 ho.y <- c(bp[1,]+0.04)
 
 # phytoplasma
-phy.annotation<-as.vector(apply(BnQpcr.aggdata2,2,sum))
+phy.annotation<-as.vector(apply(BnQpcr.aggdata,2,sum))
 phy.x<-c(BnQpcr.occurr+0.01,length(names(BnQpcr.occurr)))
 phy.y<-c(bp[2,]+0.04)
 
 # bn
-bn.annotation<-as.vector(apply(Bn.aggdata,2,sum))
+bn.annotation<-Bn.aggdata$bnTotal
 bn.x<-c(Bn.occurr+0.01,length(names(Bn.occurr)))
 bn.y<-c(bp[3,]+0.04)
 
@@ -334,8 +396,8 @@ legend(0.6,20,x.intersp = 0.5,c("'bois noir' *",bquote(italic(Ca.)~ Phytoplasma 
 
 \newpage
 
-### Altitudinal distribution of Ho gender and Phy infection?
-```{r Altitudinal_distribution_Gender_Phy,fig.width=9,fig.height=9}
+### Elevational distribution of Ho gender and Phy infection?
+```{r Elevational_distribution_Gender_Phy,fig.width=9,fig.height=9}
 par(mar=c(10,10,2,6),xpd = TRUE)
 bp<-barplot(as.matrix(t(cbind(sex.occurrPlot,qpcr.occurrPlot))),beside=T,horiz=T,xlim=c(0,1),yaxt="n",cex.axis=1.5)
 
@@ -357,16 +419,16 @@ df<-data.frame(matrix(0,nrow=24,ncol=4))
 colnames(df)<-c("type","alt.level","sex","count")
 df$type<-c(rep(1,12),rep(2,12))
 df$sex<-c(rep("m",6),rep("w",6),rep("m",6),rep("w",6))
-df$alt.level<-rep(sort((unique(WLqpcr$alt.level))),4)
-df$count[1:6]<-table(WLqpcr$sex,WLqpcr$alt.level)[1,] # male counts
-df$count[7:12]<-table(WLqpcr$sex,WLqpcr$alt.level)[2,] # female counts
+df$elevationLevel<-rep(sort((unique(WLqpcr$elevationLevel))),4)
+df$count[1:6]<-table(WLqpcr$sex,WLqpcr$elevationLevel)[1,] # male counts
+df$count[7:12]<-table(WLqpcr$sex,WLqpcr$elevationLevel)[2,] # female counts
 WLqpcrMale <- WLqpcr[WLqpcr$sex=="m",]
 WLqpcrFemale <- WLqpcr[WLqpcr$sex=="w",]
-df$count[13:18]<-c(table(WLqpcrMale$phytoplasma,WLqpcrMale$alt.level)[2,1:4],0,table(WLqpcrMale$phytoplasma,WLqpcrMale$alt.level)[2,5]) # male infected
-df$count[19:24]<-table(WLqpcrFemale$phytoplasma,WLqpcrFemale$alt.level)[2,] # female infected
+df$count[13:18]<-c(table(WLqpcrMale$phytoplasma,WLqpcrMale$elevationLevel)[2,1:4],0,table(WLqpcrMale$phytoplasma,WLqpcrMale$elevationLevel)[2,5]) # male infected
+df$count[19:24]<-table(WLqpcrFemale$phytoplasma,WLqpcrFemale$elevationLevel)[2,] # female infected
 
-tick.at <- sort((unique(WLqpcr$alt.level)))
-pl <- levelplot(count ~ type * alt.level | sex, df)
+tick.at <- sort((unique(WLqpcr$elevationLevel)))
+pl <- levelplot(count ~ type * elevationLevel | sex, df)
 print(pl)
 ```
 

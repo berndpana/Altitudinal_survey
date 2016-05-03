@@ -91,6 +91,30 @@ consolidatePhytoplasma<-function(df){
 
 
 
+untangleSites <- function(data){
+  # http://www.endmemo.com/program/R/grepl.php
+  
+  rownumbersCombinedTrees = which(data[,4]>1)
+  
+  for (i in 1:length(rownumbersCombinedTrees)){ # loop over rows with characters
+    j <- rownumbersCombinedTrees[i]
+    rowCombinedTrees <- as.vector(t(as.matrix(data[j,]))) # get the entire row where trees combined
+    combinedTrees <- as.character(data[j,1])              # get id's of combined trees
+    
+    print(c(i,j,combinedTrees)) 
+    
+    
+    newData <- t(replicate(data[j,4], rowCombinedTrees)) # duplicate rows based on number of trees
+    newData[,1] <- seq(firstTree,lastTree) # # replace e.g. 1-10,1-10,1-10,1-10,1-10,1-10,1-10,1-10,1-10,1-10 with  1 2 3 4 5 6 7 8 9 10
+    colnames(newData) <- colnames(data)
+    # append newData 
+    data <- data.frame(rbind(data,newData),row.names = NULL)
+  }
+}
+
+
+
+
 
 
 ###################

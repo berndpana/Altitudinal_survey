@@ -77,6 +77,52 @@ load(file="data/hyal_altitude_workingdata.RData")
 set.seed(2013) # for reproducibility
 ```
 
+
+
+#### WLqpcr-Dataset without problematic weight/length records
+weight = 1 (e.g. missing abdomen)
+length = 2 (e.g. curved)
+weight & length = 3
+```{r}
+# incomplete weights and lengths discarded
+WLqpcr<-hoQpcr[-which(hoQpcr[,"problem_weight_length"]>0),] # discard incomplete weights and length
+WLqpcr<-data.frame(subset(WLqpcr,select=c("ho_id","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+
+# discard individuals with incomplete values for weight
+Wqpcr<-hoQpcr[-which(hoQpcr[,"problem_weight_length"]==1 | hoQpcr[,"problem_weight_length"]==3),] # discard incomplete weights
+Wqpcr<-data.frame(subset(Wqpcr,select=c("ho_id","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+
+# discard individuals with incomplete values for length
+Lqpcr<-hoQpcr[-which(hoQpcr[,"problem_weight_length"]==2 | hoQpcr[,"problem_weight_length"]==3),] # discard incomplete lengths
+Lqpcr<-data.frame(subset(Lqpcr,select=c("ho_id","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+```
+
+
+### Phytoplasma quantity
+```{r}
+#SWLqpcrA<-SWLqpcr[which(SWLqpcr$phytoplasma_type=='a'),] # only type a presences
+
+# na need to be replaced with 0 otherwise not used in regression
+
+# no weight & length
+WLqpcrRelQuant <- WLqpcr
+WLqpcrRelQuant[which(is.na(WLqpcrRelQuant$phytoplasma_type)),7:9] <- 0
+WLqpcrRelQuantA<-WLqpcrRelQuant[which(WLqpcrRelQuant$phytoplasma_type!='b'),] # presences of type a and all absences
+
+# no weight
+WqpcrRelQuant <- Wqpcr
+WqpcrRelQuant[which(is.na(WqpcrRelQuant$phytoplasma_type)),7:9] <- 0
+WqpcrRelQuantA<-WqpcrRelQuant[which(WqpcrRelQuant$phytoplasma_type!='b'),] # presences of type a and all absences
+
+# no length
+LqpcrRelQuant <- Lqpcr
+LqpcrRelQuant[which(is.na(LqpcrRelQuant$phytoplasma_type)),7:9] <- 0
+LqpcrRelQuantA<-LqpcrRelQuant[which(LqpcrRelQuant$phytoplasma_type!='b'),] # presences of type a and all absences
+```
+
+
+
+
 Scaling:
 Continuous variables centered at their mean. In that case, the intercept is the value of your dependent variable when all independent variables are at their mean. 
 
@@ -366,7 +412,7 @@ The likelihood ratio test is significant. Thus, the variable "altitude" should r
 ### Influence of Rel. quantity on body size
 Comparison w/o interaction: sex and rel. quantity.
 
-```{r reg_rel_quant_interaction, include=TRUE,echo=TRUE}
+```{r reg_rel_quant_interaction2, include=TRUE,echo=TRUE}
 model1 <- lm(log.length~sex*scaled.rel_quant+scaled.altitude+I(scaled.altitude^2),data=regDf)
 summary(model1)
 ```
@@ -374,27 +420,10 @@ summary(model1)
 Interaction is not significant. Thus, interaction should not remain in the model
 
 
-```{r reg_rel_quant, include=TRUE,echo=TRUE}
+```{r reg_rel_quant_length2, include=TRUE,echo=TRUE}
 model1 <- lm(log.length~sex+scaled.rel_quant+scaled.altitude+I(scaled.altitude^2),data=regDf)
 summary(model1)
 ```
-
-Influence of phytoplasma relative quantity on Ho body size on is not significant.
-
-Coefficients:
-                      Estimate Std. Error t value Pr(>|t|)    
-(Intercept)           0.468154   0.004648 100.712  < 2e-16 ***
-sexw                  0.165679   0.005853  28.308  < 2e-16 ***
-scaled.rel_quant     -0.004681   0.002887  -1.622  0.10536    
-scaled.altitude       0.006259   0.003394   1.844  0.06563 .  
-I(scaled.altitude^2) -0.004647   0.001473  -3.155  0.00168 ** 
----
-Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
-
-Residual standard error: 0.07562 on 686 degrees of freedom
-Multiple R-squared:  0.5455,  Adjusted R-squared:  0.5429 
-F-statistic: 205.9 on 4 and 686 DF,  p-value: < 2.2e-16
-
 
 
 
@@ -428,7 +457,7 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 
 Comparison of full model with altitude and saturated model.
 
-```{r reg_infect_altitude, include=TRUE,echo=TRUE}
+```{r reg_infect_altitude_body, include=TRUE,echo=TRUE}
 model1 <- lm(log.weight~sex+phytoplasma+altitude+I(altitude^2),data=regDf)
 summary(model1)
 
@@ -447,7 +476,7 @@ The likelihood ratio test is not significant. Thus, the variable "altitude" shou
 ### Influence of phytoplasma infection on body size
 Comparison w/o interaction: sex and phytoplasma infection.  
 
-```{r reg_infect_interaction, include=TRUE,echo=TRUE}
+```{r reg_infect_interaction_body, include=TRUE,echo=TRUE}
 model1 <- lm(log.weight~phytoplasma*sex,data=regDf)
 summary(model1)
 ```
@@ -462,7 +491,7 @@ plot(effect("phytoplasma:sex", model1), multiline = TRUE)
 ```
 
 
-```{r reg_infect, include=TRUE,echo=TRUE}
+```{r reg_infection, include=TRUE,echo=TRUE}
 # choose reference categories
 regDf$sex <- relevel(regDf$sex,ref="m")
 regDf$phytoplasma <- relevel(regDf$phytoplasma,ref="0")
@@ -486,9 +515,9 @@ ggplot(data=regDf, aes(x=phytoplasma, y=log.weight, group=sex, shape=sex,linetyp
 
 
 
-```{r tabulation_group_means}
+```{r tabulation_group_means_body}
 # calculation of means in subgroups; library Hmisc
-summary(log.length~sex+phytoplasma,data=regDf, method = "cross", fun = mean) 
+#summary(log.length~sex+phytoplasma,data=regDf, method = "cross", fun = mean) 
 ```
 
 
@@ -514,7 +543,7 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 
 Comparison of full model with altitude and saturated model.
 
-```{r reg_rel_quant_altitude, include=TRUE,echo=TRUE}
+```{r reg_rel_quant_altitude_weight, include=TRUE,echo=TRUE}
 model1 <- lm(log.weight~sex+scaled.rel_quant+altitude+I(altitude^2),data=regDf)
 summary(model1)
 
@@ -526,7 +555,7 @@ anova(model1,model2,test="LRT")
 
 
 
-```{r reg_rel_quant_altitude, include=TRUE,echo=TRUE}
+```{r reg_rel_quant_altitude_weight2, include=TRUE,echo=TRUE}
 model1 <- lm(log.weight~sex+scaled.rel_quant+altitude,data=regDf)
 summary(model1)
 
@@ -544,7 +573,7 @@ The likelihood ratio test is not significant. Thus, the variable "altitude" shou
 ### Influence of Rel. quantity on Ho body weight
 Comparison w/o interaction: sex and rel. quantity.
 
-```{r reg_rel_quant_interaction, include=TRUE,echo=TRUE}
+```{r reg_rel_quant_interaction_weight, include=TRUE,echo=TRUE}
 model1 <- lm(log.weight~sex*scaled.rel_quant,data=regDf)
 summary(model1)
 ```
@@ -588,7 +617,7 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 Comparison of full model with altitude and saturated model.
 
 
-```{r reg_infect_altitude, include=TRUE,echo=TRUE}
+```{r reg_infect_altitude_phytoplasma, include=TRUE,echo=TRUE}
 model1 <- glm(phytoplasma~sex+scaled.length+altitude+I(altitude^2),data=regDf,family="binomial")
 summary(model1)
 
@@ -599,14 +628,14 @@ anova(model1,model2,test="Chisq")
 ```
 
 
-```{r reg_infect_altitude, include=TRUE,echo=TRUE}
+```{r reg_infect_altitude_phytoplasma2, include=TRUE,echo=TRUE}
 model1 <- glm(phytoplasma~sex+scaled.length+altitude,data=regDf,family="binomial")
 summary(model1)
 
 model2 <- glm(phytoplasma~sex+scaled.length,data=regDf,family="binomial")
 summary(model2)
 
-anova(model1,model2,test="Chsiq")
+anova(model1,model2,test="Chisq")
 ```
 
 P-Value of likelihood-ratio test is: `r NumToString(anova(model1,model2,test="Chisq")[2,5])`.
@@ -618,7 +647,7 @@ The likelihood ratio test is not significant. Thus, the variable "altitude" shou
 ### Influence of Ho body size on phytoplasma infection
 Comparison w/o interaction: sex and phytoplasma infection.  
 
-```{r reg_infect_interaction, include=TRUE,echo=TRUE}
+```{r reg_infect_interaction_phytoplasma, include=TRUE,echo=TRUE}
 model1 <- glm(phytoplasma~scaled.length*sex,data=regDf,family="binomial")
 summary(model1)
 ```
@@ -629,7 +658,7 @@ Interaction is not significant. Thus, interaction should not remain in the model
 
 
 
-```{r reg_infect, include=TRUE,echo=TRUE}
+```{r reg_infect_phytoplasma, include=TRUE,echo=TRUE}
 # choose reference categories
 regDf$sex <- relevel(regDf$sex,ref="m")
 regDf$phytoplasma <- relevel(regDf$phytoplasma,ref="0")
@@ -672,7 +701,7 @@ mean(model1$fitted.value)
 # [1] 0.130246
 df <- regDf
 observedDisease<-as.numeric(levels(df$phytoplasma))[df$phytoplasma]
-> mean(observedDisease)
+mean(observedDisease)
 #[1] 0.130246
 
 sum(observedDisease)
@@ -764,7 +793,7 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 
 Comparison of full model with altitude and saturated model.
 
-```{r reg_rel_quant_altitude, include=TRUE,echo=TRUE}
+```{r reg_rel_quant_altitude3, include=TRUE,echo=TRUE}
 model1 <- lm(rel_quant~sex+scaled.length+altitude+I(altitude^2),data=regDf)
 summary(model1)
 
@@ -775,7 +804,7 @@ anova(model1,model2,test="LRT")
 ```
 
 
-```{r reg_rel_quant_altitude, include=TRUE,echo=TRUE}
+```{r reg_rel_quant_altitude2, include=TRUE,echo=TRUE}
 model1 <- lm(rel_quant~sex+scaled.length+altitude,data=regDf)
 summary(model1)
 
@@ -948,7 +977,7 @@ length(model3$fitted.values) # how many variables
 ```{r Bn_Bs_Altitude_Diagnosis}
 model1 <- glm(cbind(ill,N-ill)~as.factor(sex)+scaled.length+scaled.altitude+I(scaled.altitude^2),data=BnHoPhy,family="binomial")
 summary(model1)
-
+```
 
 ```{r}
 d2(model1)
@@ -958,18 +987,14 @@ length(model1$fitted.values) # how many variables
 lroc(model1)$auc # library epicalc
 
 observedDisease<-BnHoPhy$ill/BnHoPhy$N
-predictedDisease <- round(predict(model1,type="response"),3) # model1$fitted.value
+predictedDisease <- round(predict.glm(model1,type="response"),3) # model1$fitted.value
 
-frequencyObs  <- table(observedDisease)  / length(observedDisease)
-frequencyPred <- table(predictedDisease) / length(predictedDisease)
-
-combined <- rbind(c(frequencyObs, rep(NA,  (length(frequencyPred) - length(frequencyObs)))), frequencyPred) # empty frequencies
-
-par(c)
-barplot(combined, beside = T)
 
 plot(observedDisease,predictedDisease)
 abline(c(0,0),c(1,1))
+
+# MSE
+mean((observedDisease-predictedDisease)^2)/length(observedDisease)
 
 
 # residuals
@@ -1019,7 +1044,7 @@ summary(model2)
 
 ```{r}
 library(Hmisc)
-describe(BnHoPhyVine)
+#describe(BnHoPhyVine)
 
 test <- glm(ill~sex+phytoplasma+scaled.altitude+I(scaled.altitude^2),data=BnHoPhyVine,family="binomial")
 summary(test)
@@ -1043,6 +1068,7 @@ mtable(glm1)
 
 # AUC
 lroc(model1)$auc # library epicalc
+library(verification)
 roc.area(obs=glm1$data$ill,pred=predict(glm1,type="response")) # $A = AUC, package "verification", Dormann, p.150
 
 
@@ -1072,12 +1098,14 @@ Results from GLM:
 - Nagelkerke R2: 0.05
 
 
-
-```{r Disease_glm_logistic_diagnosis_residuals}
-# Comparison simulalted with observed occurrences
+```{r}
 df <- BnHoPhyVine
 observedDisease<-df$ill # BnHoPhy$ill/BnHoPhy$N
 predictedDisease <- round(predict(glm1,type="response"),3) # model1$fitted.value
+```
+
+```{r Disease_glm_logistic_diagnosis_residuals, eval=FALSE}
+# Comparison simulalted with observed occurrences
 
 set.seed(2015)
 predictedDisease <- boot(data=df,statistic=bootPredict, R=1000,formula=ill~sex+scaled.length+scaled.altitude+I(scaled.altitude))
@@ -1188,7 +1216,7 @@ plot(fig.1.2,split=c(2,1,2,1),newpage=FALSE)
 
 
 ```{r Reg_Dis_RelQuant}
-df$disease.pred <- predict(model1,type="response")
+df$disease.pred <- as.numeric(predict(model1,type="response"))
 
 ggplot(data=df, aes(x=scaled.rel_quant, y=disease.pred, group=sex, shape=sex,linetype=sex)) +  
   theme_bw()+
