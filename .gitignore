@@ -14,7 +14,7 @@ data/2_Gelbfallen/*
 data/3_Durchseuchung/*
 data/4_GIS/*
 data/5_Kobo/*
-
+data_additional/*
 
 data/Ho_qPCR.xls
 
@@ -51,3 +51,15 @@ r-code/01_preparation_workingdata.Rmd
 r-code/03_stat_analyses.html
 
 *.html
+
+*.xlsx
+
+data/hyal_altitude_rawdata.RData
+
+data/hyal_altitude_workingdata.RData
+
+data/Ho_pres.txt
+
+data/ho_phy_bn_survey_rawdata.RData
+
+r-code/03_stat_analyses.html
