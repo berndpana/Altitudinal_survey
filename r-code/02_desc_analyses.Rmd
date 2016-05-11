@@ -37,6 +37,7 @@ source("r-code/00_settings.R")
 source("r-code/00_helper_functions.R")
 
 library(ggplot2)
+library(grid)
 library(graphics) # sunflower
 library(PresenceAbsence)
 library(memisc) # mtable
@@ -46,6 +47,15 @@ load(file="data/ho_qpcr_bn_survey_workingdata.RData")
 
 set.seed(2013) # for reproducibility
 ```
+
+
+```{r}
+heights<-c("0-100","100-200","200-300","300-400","400-500","500-600","600-700",">700")
+heightsPlot<-heights[-c(1,8)]
+sex.occurrPlot<-sex.occurr[-c(1,8)]
+qpcr.occurrPlot<-qpcr.occurr[-c(1,8)]
+```
+
 
 
 #### WLqpcr-Dataset without problematic weight/length records
@@ -64,45 +74,14 @@ WLqpcr <-df1[-which(df1$problem_weight_length>0),] # discard incomplete weights 
 # # [1] 396
 ```
 
-
-
-
-
-
 ## Summary statistics of *H. obsoletus*
-```{r Ho_presence, echo=FALSE}
+```{r Ho_presence}
 #HoSurvey<-readWorksheetFromFile("data/Ho_qPCR.xls",4)
 df <- hoSurvey
 
 dfSumAllyears <- df %>% group_by(site_id,year=as.numeric(format(hoSurvey$date, "%Y"))) %>% summarise(hoCount=sum(ho_pres))
-dfSumPresAllYears <- dfSumAllyears %>% group_by(year) %>% summarise(hoNtotal=n(),hoAbscence=sum(hoCount==0),hoPresence=sum(hoCount>0),hoIncidence=round(sum(hoCount>0)/n(),2));dfSumPresAllYears
+dfSumPresAllYears <- dfSumAllyears %>% group_by(year) %>% summarise(hoNtotal=n(),hoAbscence=sum(hoCount==0),hoPresence=sum(hoCount>0),hoIncidence=round(sum(hoCount>0)/n(),2),hoAbundance=sum(hoCount));dfSumPresAllYears
 ```
-
-
-
-
-
-```{r}
-# in some locations with insects, no collection was carried out -> 99999 
-HoAbund2010 <- na.omit(as.numeric(hoSurvey$Ho_abund_2010))
-HoAbund2010 <- HoAbund2010[!HoAbund2010>1000]
-
-HoAbund2011 <- na.omit(as.numeric(hoSurvey$Ho_abund_2011))
-HoAbund2011 <- HoAbund2011[!HoAbund2011>1000]
-
-HoAbund2012 <- na.omit(as.numeric(hoSurvey$Ho_abund_2012))
-HoAbund2012 <- HoAbund2012[!HoAbund2012>1000]
-
-HoAbund2013 <- na.omit(as.numeric(hoSurvey$Ho_abund_2013))
-```
-
-
-#### Abundance of *H. obsoletus*  
-* 2007, 2008, 2009: not recorded;  
-* 2010: `r sum(HoAbund2010)`;  
-* 2011: `r sum(HoAbund2011)`;  
-* 2012: `r sum(HoAbund2012)`;  
-* 2013: `r sum(HoAbund2013)`  
 
 #### Body size of *H. obsoletus*
 ```{r hist_body_length}
@@ -188,7 +167,7 @@ range(round(df[df[,2]==1,4])) # Elevation range of infected grapevines
 ```
 
 How many grapevines were surveyed: `r nrow(hoBn)`.   
-Prevalence of BN disease in grapevines is `r nrow(hoBn[bn.alt[,2]==1,])/nrow(hoBn)`.
+Prevalence of BN disease in grapevines is `r nrow(hoBn[hoBn[,2]==1,])/nrow(hoBn)`.
 
 \newpage
 
@@ -346,11 +325,12 @@ bp<-barplot(as.matrix(t(cbind(ho.occurr,qpcr.occurr))),beside=T,
 
 text(rep(-0.012,length(names(ho.occurr))),bp[1,]+0.5,heights,adj=1,xpd=T,cex=1)
 text(-0.2,12,"Elevation a.s.l. (m)",xpd=T,srt=90,cex=1.5)
-text(0.5,-5,"Incidence",xpd=T,cex=1.5)
+text(0.5,-3,"Incidence",xpd=T,cex=1.5)
 for (v in 1:length(ho.annotation)){text(ho.x[v],ho.y[v],bquote(N[v] ~ " = "~ .(ho.annotation[v])), adj=0,cex=0.8)}
 for (p in 1:length(phy.annotation)){text(phy.x[p],phy.y[p],bquote(N[p] ~ " = "~ .(phy.annotation[p])),adj=0,cex=0.8)}
 
 legend(0.6,20,x.intersp = 0.5,c(bquote(italic(Ca.)~ Phytoplasma ~ solani),expression(italic("Hyalesthes obsoletus"))),bty="n",fill=c("grey50","grey20"))
+# R-Studio pdf export: 11x11 inch
 ```
 
 \newpage

@@ -1,5 +1,5 @@
 ---
-title: "Survey of Ho,Phy, BN"
+title: "Survey of *Hyalesthes obsoletus*, *Ca.* Phytoplasma solani and boisnoir"
 author: "Bernd Panassiti"
 date: 'created: 20.11.2013, last modified: `r format(Sys.Date(), format="%d.%m.%Y")`'
 output:
@@ -25,7 +25,7 @@ phytoplasma ~ gender + body size
 body size ~ gender + phytoplasma  
 
 Vorgehensweise:  
-1. Regression mit allen Variablen: sex + phytoplasma + altitude  
+1. Regression mit allen Variablen: sex + phytoplasma + elevation  
 2. Regression mit Variablen: sex + phytoplasma  
 3. Test mit likelihood ratio test: anova(model1,model2,test="LRT")  
 
@@ -69,10 +69,11 @@ library(lattice)
 require(markdown)
 library(Hmisc) # group means
 library(effects) # to plot interaction
+library(dplyr)
 library(XLConnect) # writeWorksheetToFile
 library(boot) # bootstrapping
 
-load(file="data/hyal_altitude_workingdata.RData")
+load(file="data/ho_qpcr_bn_survey_workingdata.RData")
 
 set.seed(2013) # for reproducibility
 ```
@@ -85,16 +86,18 @@ length = 2 (e.g. curved)
 weight & length = 3
 ```{r}
 # incomplete weights and lengths discarded
-WLqpcr<-hoQpcr[-which(hoQpcr[,"problem_weight_length"]>0),] # discard incomplete weights and length
-WLqpcr<-data.frame(subset(WLqpcr,select=c("ho_id","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+df     <- hoSurveySitesQpcr
+df1    <- df[-which(is.na(df$length)),]
+WLqpcr <-df1[-which(df1$problem_weight_length>0),] # discard incomplete weights and length
+WLqpcr<-data.frame(subset(WLqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
 
 # discard individuals with incomplete values for weight
-Wqpcr<-hoQpcr[-which(hoQpcr[,"problem_weight_length"]==1 | hoQpcr[,"problem_weight_length"]==3),] # discard incomplete weights
-Wqpcr<-data.frame(subset(Wqpcr,select=c("ho_id","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+Wqpcr<-df1[-which(df1[,"problem_weight_length"]==1 | df1[,"problem_weight_length"]==3),] # discard incomplete weights
+Wqpcr<-data.frame(subset(Wqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
 
 # discard individuals with incomplete values for length
-Lqpcr<-hoQpcr[-which(hoQpcr[,"problem_weight_length"]==2 | hoQpcr[,"problem_weight_length"]==3),] # discard incomplete lengths
-Lqpcr<-data.frame(subset(Lqpcr,select=c("ho_id","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+Lqpcr<-df1[-which(df1[,"problem_weight_length"]==2 | df1[,"problem_weight_length"]==3),] # discard incomplete lengths
+Lqpcr<-data.frame(subset(Lqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
 ```
 
 
@@ -122,6 +125,36 @@ LqpcrRelQuantA<-LqpcrRelQuant[which(LqpcrRelQuant$phytoplasma_type!='b'),] # pre
 
 
 
+# Combination of BnHoQpcr and BnSurvey object
+- a new object need to be created with site specific information:
+site_id | BnTotal | BnIll | elevation | Ho_pres | sex_ratio | mean_length | mean_weight | sum_type_a | sum_type_b | mean_rel_quant | mean_rel_quant_sd | phytoplasma_pres
+
+- sex-ratio best expressed as proportions (sex ratio = males/(males + females))
+
+```{r}
+BnSite <- data.frame(BnSurvey %>% group_by(site_id) %>% summarise(bnTotal=sum(bnTotal),bnIll=sum(bnIll)))
+
+BnSiteEnv <- data.frame(BnHoQpcr %>% group_by(site_id,elevation) %>% summarise(ho_pres=sum(ho_pres),length=mean(length, na.rm = TRUE),weight=mean(weight, na.rm = TRUE),type_a=sum(type_a, na.rm = TRUE),type_b=sum(type_b, na.rm = TRUE),rel_quant=mean(rel_quant, na.rm = TRUE),sum_phytoplasma=sum(phytoplasma, na.rm = TRUE),sexm=sum(sex=="m", na.rm = TRUE),sexw=sum(sex=="w", na.rm = TRUE)) %>% mutate(
+  sex_ratio=sexm/(sexm+sexw),
+  phytoplasma_pres = 
+    # check the data, if it's empty or blank, return FALSE
+    ifelse(
+      # here's the criteria we're checking against
+      sum_phytoplasma > 0
+      # return FALSE if it's blank
+      , 1
+      # return TRUE if it's not blank
+      , 0
+    )
+  )
+)
+
+BnSiteHoQpcr <- merge(x = BnSiteEnv, y = BnSite, by = "site_id", all.x = TRUE)
+BnSiteHoQpcr
+```
+
+
+
 
 Scaling:
 Continuous variables centered at their mean. In that case, the intercept is the value of your dependent variable when all independent variables are at their mean. 
@@ -131,14 +164,24 @@ Continuous variables centered at their mean. In that case, the intercept is the 
 regDfL <- Lqpcr
 regDfL$log.length <- log10(regDfL$length)
 regDfL$scaled.length <- scale(regDfL$length)
-regDfL$scaled.altitude <- scale(regDfL$altitude)
+regDfL$scaled.elevation <- scale(regDfL$elevation)
 
 regDfLRq <- LqpcrRelQuant
 regDfLRq$log.length <- log10(regDfLRq$length)
 regDfLRq$scaled.length <- scale(regDfLRq$length)
 regDfLRq$scaled.rel_quant <- scale(regDfLRq$rel_quant)
 regDfLRq$log.rel_quant <- log10(regDfLRq$rel_quant+1)
-regDfLRq$scaled.altitude <- scale(regDfLRq$altitude)
+regDfLRq$scaled.elevation <- scale(regDfLRq$elevation)
+
+
+# For relative quantification without 0
+regDfLRqPhy1 <- LqpcrRelQuant[LqpcrRelQuant$phytoplasma==1 & LqpcrRelQuant$rel_quant>0,]
+regDfLRqPhy1$log.length <- log10(regDfLRqPhy1$length)
+regDfLRqPhy1$scaled.length <- scale(regDfLRqPhy1$length)
+regDfLRqPhy1$scaled.rel_quant <- scale(regDfLRqPhy1$rel_quant)
+regDfLRqPhy1$log.rel_quant <- log10(regDfLRqPhy1$rel_quant+1)
+regDfLRqPhy1$scaled.elevation <- scale(regDfLRqPhy1$elevation)
+
 
 
 # weight
@@ -153,13 +196,13 @@ regDfWRq$scaled.weight <- scale(regDfWRq$weight)
 regDfWRq$scaled.rel_quant <- scale(regDfWRq$rel_quant)
 regDfWRq$log.rel_quant <- log10(regDfWRq$rel_quant)
 
-BnHoPhy$log.length <- log10(BnHoPhy$length)
-BnHoPhy$scaled.length <- scale(BnHoPhy$length)
-BnHoPhy$scaled.rel_quant <- scale(BnHoPhy$rel_quant)
-BnHoPhy$log.rel_quant <- log10(BnHoPhy$rel_quant)
-BnHoPhy$log.altitude <- log10(BnHoPhy$altitude)
-BnHoPhy$scaled.altitude <- scale(BnHoPhy$altitude)
-
+BnSiteHoQpcr$log.length <- log10(BnSiteHoQpcr$length)
+BnSiteHoQpcr$scaled.length <- scale(BnSiteHoQpcr$length)
+BnSiteHoQpcr$scaled.rel_quant <- scale(BnSiteHoQpcr$rel_quant)
+BnSiteHoQpcr$log.rel_quant <- log10(BnSiteHoQpcr$rel_quant)
+BnSiteHoQpcr$log.elevation <- log10(BnSiteHoQpcr$elevation)
+BnSiteHoQpcr$scaled.elevation <- scale(BnSiteHoQpcr$elevation)
+BnSiteHoQpcr$phytoplasma_pres <- as.factor(BnSiteHoQpcr$phytoplasma_pres)
 ```
 
 
@@ -176,22 +219,40 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 ```
 
 
-### Influence of phytoplasma infection and altitude on body size
+### Influence of phytoplasma infection and elevation on body size
 
-Comparison of full model with altitude and saturated model.
+Comparison of full model with elevation and saturated model.
 
 ```{r reg_infect_altitude, include=TRUE,echo=TRUE}
-model1 <- lm(log.length~sex+phytoplasma+scaled.altitude + I(scaled.altitude^2),data=regDf)
+model1 <- lm(log.length~sex+phytoplasma+scaled.elevation + I(scaled.elevation^2),data=regDf)
 summary(model1)
 
-model2 <- lm(log.length~sex+phytoplasma+scaled.altitude,data=regDf)
+model2 <- lm(log.length~sex+phytoplasma + scaled.elevation,data=regDf)
 summary(model2)
 
 anova(model1,model2,test="LRT")
 ```
 
 P-Value of likelihood-ratio test is: `r NumToString(anova(model1,model2,test="LRT")[2,5])`.
-The likelihood ratio test is significant. Thus, the variable "altitude" should remain in the model.
+The likelihood ratio test is significant. Thus, the variable "squared elevation" should remain in the model.
+
+
+
+
+Comparison of full model with squared elevation and saturated model.
+
+```{r reg_infect_altitude, include=TRUE,echo=TRUE}
+model1 <- lm(log.length~sex+phytoplasma+scaled.elevation + I(scaled.elevation^2),data=regDf)
+summary(model1)
+
+model2 <- lm(log.length~sex+phytoplasma,data=regDf)
+summary(model2)
+
+anova(model1,model2,test="LRT")
+```
+
+P-Value of likelihood-ratio test is: `r NumToString(anova(model1,model2,test="LRT")[2,5])`.
+The likelihood ratio test is significant. Thus, the variable "elevation" should remain in the model.
 
 
 \newpage
@@ -200,26 +261,26 @@ The likelihood ratio test is significant. Thus, the variable "altitude" should r
 Comparison w/o interaction: sex and phytoplasma infection.  
 
 ```{r reg_infect_interaction, include=TRUE,echo=TRUE}
-model1 <- lm(log.length~phytoplasma*sex+scaled.altitude + I(scaled.altitude^2),data=regDf)
+model1 <- lm(log.length~phytoplasma*sex+scaled.elevation + I(scaled.elevation^2),data=regDf)
 summary(model1)
 ```
 
 Interaction is not significant. Thus, interaction should not remain in the model.  
 
 Coefficients:
-                      Estimate Std. Error t value Pr(>|t|)    
-(Intercept)           0.470779   0.004859  96.883  < 2e-16 ***
-phytoplasma1         -0.029911   0.014179  -2.110  0.03526 *  
-sexw                  0.164481   0.006225  26.424  < 2e-16 ***
-scaled.altitude       0.005884   0.003399   1.731  0.08386 .  
-I(scaled.altitude^2) -0.004339   0.001473  -2.945  0.00334 ** 
-phytoplasma1:sexw     0.019699   0.017808   1.106  0.26901    
+                       Estimate Std. Error t value Pr(>|t|)    
+(Intercept)            0.470458   0.004872  96.557   <2e-16 ***
+phytoplasma1          -0.029683   0.014190  -2.092   0.0368 *  
+sexw                   0.164447   0.006231  26.392   <2e-16 ***
+scaled.elevation       0.005768   0.003401   1.696   0.0903 .  
+I(scaled.elevation^2) -0.004269   0.001474  -2.896   0.0039 ** 
+phytoplasma1:sexw      0.019730   0.017819   1.107   0.2686    
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-Residual standard error: 0.07552 on 685 degrees of freedom
-Multiple R-squared:  0.5473,  Adjusted R-squared:  0.544 
-F-statistic: 165.6 on 5 and 685 DF,  p-value: < 2.2e-16
+Residual standard error: 0.07557 on 685 degrees of freedom
+Multiple R-squared:  0.5468,	Adjusted R-squared:  0.5435 
+F-statistic: 165.3 on 5 and 685 DF,  p-value: < 2.2e-16
 
 
 \newpage
@@ -234,89 +295,33 @@ plot(effect("phytoplasma:sex", model1), multiline = TRUE)
 # choose reference categories
 regDf$sex <- relevel(regDf$sex,ref="m")
 regDf$phytoplasma <- relevel(regDf$phytoplasma,ref="0")
-model1 <- lm(log.length~sex+phytoplasma+scaled.altitude + I(scaled.altitude^2),data=regDf)
+model1 <- lm(log.length~sex+phytoplasma+scaled.elevation + I(scaled.elevation^2),data=regDf)
 summary(model1)
 ```
 
 Influence of phytoplasma infection on Ho body size is significant.
 
 Coefficients:
-                      Estimate Std. Error t value Pr(>|t|)    
-(Intercept)           0.469476   0.004715  99.567  < 2e-16 ***
-sexw                  0.166860   0.005842  28.561  < 2e-16 ***
-phytoplasma1         -0.017414   0.008569  -2.032  0.04253 *  
-scaled.altitude       0.005701   0.003395   1.679  0.09358 .  
-I(scaled.altitude^2) -0.004381   0.001473  -2.974  0.00304 ** 
+                       Estimate Std. Error t value Pr(>|t|)    
+(Intercept)            0.469148   0.004727  99.244  < 2e-16 ***
+sexw                   0.166832   0.005848  28.530  < 2e-16 ***
+phytoplasma1          -0.017162   0.008574  -2.002  0.04572 *  
+scaled.elevation       0.005584   0.003397   1.644  0.10071    
+I(scaled.elevation^2) -0.004311   0.001474  -2.925  0.00356 ** 
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-Residual standard error: 0.07553 on 686 degrees of freedom
-Multiple R-squared:  0.5465,  Adjusted R-squared:  0.5439 
-F-statistic: 206.7 on 4 and 686 DF,  p-value: < 2.2e-16
+Residual standard error: 0.07558 on 686 degrees of freedom
+Multiple R-squared:  0.546,	Adjusted R-squared:  0.5433 
+F-statistic: 206.2 on 4 and 686 DF,  p-value: < 2.2e-16
 
 
 
 
-4 different plots using ggplot
 
+
+### Boxplots showing Infection vs. body size
 ```{r}
-RegY <- function(sex=0,phy=0,x){
-  
-  Y <- 0.469476+0.16686*sex+(-0.017414*phy)+(0.0057011*x)+(-0.004381*(x^2))
-  return(Y)
-}
-# e.g. rbind(seq(-1,4,length.out=4),RegY(sex=1,phy=0.5,seq(-1,4,length.out=4)))
-
-df <- regDf
-df$scaled.altitude <- as.vector(df$scaled.altitude)
-df$scaled.altitude.sq <- df$scaled.altitude*df$scaled.altitude
-model1 <- lm(log.length~sex+phytoplasma+scaled.altitude+scaled.altitude.sq,data=df)
-summary(model1)
-
-# create newdata to allow lines for entire range of altitude
-newdata <- with(df, data.frame(
-  scaled.altitude = rep(seq(from = -2, to = 5, length.out = 50), 4),
-  phytoplasma = factor(rep(c("0","0","1","1"), each = 50)),
-  sex = factor(rep(c("m","w","m","w"), each = 50))))
-newdata$scaled.altitude.sq <- newdata$scaled.altitude*newdata$scaled.altitude
-newdata$log.length.preds <- stats::predict(model1, newdata=newdata)
-
-
-
-ggplot(aes(x=scaled.altitude, y=log.length), data=regDf) +
-  theme_bw()+
-  geom_point(aes(x=scaled.altitude, y=log.length,color= phytoplasma,shape=sex),data=regDf)+
-  facet_grid(sex ~ phytoplasma)+
-  geom_line(aes(x=scaled.altitude, y=log.length.preds),data=newdata,color="black")+
-  scale_colour_manual('phytoplasma', values = c('1' = 'black', '0' = 'grey80')) +
-  ylab(bquote(~"log"[10]~"("~italic("Hyalesthes obsoletus")~"body size (mm) )")) +# Set y-axis label
-  xlab(bquote(~"Scaled altitude (m a.s.l.)"))
-
-
-
-
-
-### ONLY for sex, mean phytoplasma
-
-newdata <- data.frame(
-scaled.altitude = rep(seq(-2,6,length.out=50),2),
-sex = as.factor(rep(c("m","w"), each = 50)),
-log.length.preds = c(RegY(sex=0,phy=0.5,seq(-2,6,length.out=50)),RegY(sex=1,phy=0.5,seq(-2,6,length.out=50))))
-
-
-ggplot(aes(x=scaled.altitude, y=log.length), data=regDf) +
-  theme_bw()+
-  theme(legend.key = element_blank()) +
-  geom_point(aes(x=scaled.altitude, y=log.length,color= phytoplasma,shape=sex),data=regDf)+
-  facet_grid(sex ~ .)+
-  geom_line(aes(x=scaled.altitude, y=log.length.preds),data=newdata,color="black")+
-  scale_colour_manual('phytoplasma', values = c('1' = 'black', '0' = 'grey80')) +
-  ylab(bquote(~"log"[10]~"("~italic("Hyalesthes obsoletus")~"body size (mm) )")) +# Set y-axis label
-  xlab(bquote(~"Scaled altitude (m a.s.l.)"))
- 
-  
-  
-  
 ########
 ggplot(data=regDf, aes(x=phytoplasma, y=log.length)) + 
    theme_bw()+
@@ -324,7 +329,7 @@ ggplot(data=regDf, aes(x=phytoplasma, y=log.length)) +
    facet_grid(~sex) +
    geom_smooth(method = "lm",size = 1, se=FALSE, color="black", aes(group=1)) + 
   ylab(bquote(~"log"[10]~"("~italic("Hyalesthes obsoletus")~"body size (mm) )")) +# Set y-axis label
-  xlab(bquote(~"Scaled altitude (m a.s.l.)"))
+  xlab(bquote(~"Scaled elevation (m a.s.l.)"))
   #xlab(bquote(italic("Hyalesthes obsoletus")~"infected with"~italic("Ca.")~"Phytoplasma solani")) + # Set x-axis label
 
 
@@ -337,6 +342,8 @@ ggplot(data=regDf, aes(x=phytoplasma, y=log.length)) +
   xlab(bquote(italic("Hyalesthes obsoletus")~"infected with"~italic("Ca.")~"Phytoplasma solani")) # Set x-axis label
 ```
 
+
+
 > summary(lm(log.length~sex+phytoplasma-1,data=regDf))
 
 Call:
@@ -344,37 +351,108 @@ lm(formula = log.length ~ sex + phytoplasma - 1, data = regDf)
 
 Residuals:
      Min       1Q   Median       3Q      Max 
--0.21774 -0.04799 -0.01127  0.06024  0.18672 
+-0.21746 -0.04771 -0.01099  0.05993  0.18700 
 
 Coefficients:
               Estimate Std. Error t value Pr(>|t|)    
-sexm          0.465529   0.004533 102.700   <2e-16 ***
-sexw          0.632001   0.004006 157.774   <2e-16 ***
-phytoplasma1 -0.018978   0.008592  -2.209   0.0275 *  
+sexm          0.465246   0.004543 102.415   <2e-16 ***
+sexw          0.631728   0.004002 157.862   <2e-16 ***
+phytoplasma1 -0.018701   0.008595  -2.176   0.0299 *  
 ---
 Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
 
-Residual standard error: 0.07591 on 688 degrees of freedom
-Multiple R-squared:  0.9823,  Adjusted R-squared:  0.9823 
-F-statistic: 1.276e+04 on 3 and 688 DF,  p-value: < 2.2e-16
+Residual standard error: 0.07594 on 688 degrees of freedom
+Multiple R-squared:  0.9823,	Adjusted R-squared:  0.9823 
+F-statistic: 1.275e+04 on 3 and 688 DF,  p-value: < 2.2e-16
 
 
-Interaction nicht significant. Auch wenn bei ggplot 2
+
 
 
 
 
 ```{r tabulation_group_means}
 # calculation of means in subgroups; library Hmisc
-summary(log.length~sex+phytoplasma+altitude,data=regDf, method = "cross", fun = mean) 
+summary(log.length~sex+phytoplasma+elevation,data=regDf, method = "cross", fun = mean) 
 ```
 
 
 \newpage
 
+### Influence of phytoplasma infection on body size
+4 different plots using ggplot
+
+```{r}
+
+df <- regDf
+df$scaled.elevation <- as.vector(df$scaled.elevation)
+df$scaled.elevation.sq <- df$scaled.elevation*df$scaled.elevation
+model1 <- lm(log.length~sex+phytoplasma+scaled.elevation+scaled.elevation.sq,data=df)
+model2 <- lm(log.length~sex+phytoplasma+scaled.elevation,data=df)
+summary(model1)
+
+# create newdata to allow lines for entire range of elevation
+newdata <- with(df, data.frame(
+  scaled.elevation = rep(seq(from = -2, to = 5, length.out = 50), 4),
+  phytoplasma = factor(rep(c("0","0","1","1"), each = 50)),
+  sex = factor(rep(c("m","w","m","w"), each = 50))))
+newdata$scaled.elevation.sq <- newdata$scaled.elevation*newdata$scaled.elevation
+newdata$log.length.preds <- stats::predict(model1, newdata=newdata)
+newdata$log.length.preds.linear <- stats::predict(model2, newdata=newdata)
+
+
+ggplot(aes(x=scaled.elevation, y=log.length), data=regDf) +
+  theme_bw()+
+  geom_point(aes(x=scaled.elevation, y=log.length,color= phytoplasma,shape=sex),data=regDf)+
+  facet_grid(sex ~ phytoplasma)+
+  geom_line(aes(x=scaled.elevation, y=log.length.preds),data=newdata,color="black")+
+  scale_colour_manual('phytoplasma', values = c('1' = 'black', '0' = 'grey80')) +
+  ylab(bquote(~"log"[10]~"("~italic("Hyalesthes obsoletus")~"body size (mm) )")) +# Set y-axis label
+  xlab(bquote(~"Scaled elevation (m a.s.l.)"))
+```
 
 
 
+```{r}
+RegY <- function(sex=0,phy=0,x){
+  
+  Y <- 0.469476+0.16686*sex+(-0.017414*phy)+(0.0057011*x)+(-0.004381*(x^2))
+  return(Y)
+}
+# e.g. rbind(seq(-1,4,length.out=4),RegY(sex=1,phy=0.5,seq(-1,4,length.out=4)))
+
+RegYlinear <- function(sex=0,phy=0,x){
+  
+  Y <- 0.4652090+0.1665386*sex+(-0.0186678*phy)+(0.0003524*x)
+  return(Y)
+}
+# e.g. rbind(seq(-1,4,length.out=4),RegY(sex=1,phy=0.5,seq(-1,4,length.out=4)))
+
+
+### ONLY for sex, mean phytoplasma
+
+newdata <- data.frame(
+scaled.elevation = rep(seq(-2,6,length.out=50),2),
+sex = as.factor(rep(c("m","w"), each = 50)),
+log.length.preds = c(RegY(sex=0,phy=0.5,seq(-2,6,length.out=50)),RegY(sex=1,phy=0.5,seq(-2,6,length.out=50))),
+log.length.preds.linear = c(RegYlinear(sex=0,phy=0.5,seq(-2,6,length.out=50)),RegYlinear(sex=1,phy=0.5,seq(-2,6,length.out=50))))
+
+ggplot(aes(x=scaled.elevation, y=log.length), data=regDf) +
+  theme_bw()+
+  theme(legend.key = element_blank()) +
+  geom_point(aes(x=scaled.elevation, y=log.length,color= phytoplasma,shape=sex),data=regDf)+
+  facet_grid(sex ~ .)+
+  geom_line(aes(x=scaled.elevation, y=log.length.preds),data=newdata,color="black")+
+  #geom_line(aes(x=scaled.elevation, y=log.length.preds.linear),data=newdata,color="black")+
+  scale_colour_manual('phytoplasma', values = c('1' = 'black', '0' = 'grey80')) +
+  ylab(bquote(~"log"[10]~"("~italic("Hyalesthes obsoletus")~"body size (mm) )")) +# Set y-axis label
+  xlab(bquote(~"Scaled elevation (m a.s.l.)"))
+```
+
+According to the likelihood-ratio test elevation should be included as a squared variable, i.e. the fit should be represented as a curved line.
+The plot shows that biggest individuals can be found at intermediate elevations and the short Ho male individuals are significantly higher infected with *Ca.* P. solani. 
+
+\newpage
 
 
 
@@ -388,15 +466,15 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 ```
 
 
-### Influence of rel. quantity and altitude on body size
+### Influence of rel. quantity and elevation on body size
 
-Comparison of full model with altitude and saturated model.
+Comparison of full model with elevation and saturated model.
 
-```{r reg_rel_quant_altitude, include=TRUE,echo=TRUE}
-model1 <- lm(log.length~sex+scaled.rel_quant+scaled.altitude+I(scaled.altitude^2),data=regDf)
+```{r reg_rel_quant_elevation, include=TRUE,echo=TRUE}
+model1 <- lm(log.length~sex+scaled.rel_quant+scaled.elevation+I(scaled.elevation^2),data=regDf)
 summary(model1)
 
-model2 <- lm(log.length~sex+scaled.rel_quant+scaled.altitude,data=regDf)
+model2 <- lm(log.length~sex+scaled.rel_quant,data=regDf)
 summary(model2)
 
 anova(model1,model2,test="LRT")
@@ -405,7 +483,7 @@ anova(model1,model2,test="LRT")
 
 
 P-Value of likelihood-ratio test is: `r NumToString(anova(model1,model2,test="LRT")[2,5])`.
-The likelihood ratio test is significant. Thus, the variable "altitude" should remain in the model.
+The likelihood ratio test is significant. Thus, the variable "elevation" should remain in the model.
 
 \newpage
 
@@ -413,7 +491,7 @@ The likelihood ratio test is significant. Thus, the variable "altitude" should r
 Comparison w/o interaction: sex and rel. quantity.
 
 ```{r reg_rel_quant_interaction2, include=TRUE,echo=TRUE}
-model1 <- lm(log.length~sex*scaled.rel_quant+scaled.altitude+I(scaled.altitude^2),data=regDf)
+model1 <- lm(log.length~sex*scaled.rel_quant+scaled.elevation+I(scaled.elevation^2),data=regDf)
 summary(model1)
 ```
 
@@ -421,7 +499,7 @@ Interaction is not significant. Thus, interaction should not remain in the model
 
 
 ```{r reg_rel_quant_length2, include=TRUE,echo=TRUE}
-model1 <- lm(log.length~sex+scaled.rel_quant+scaled.altitude+I(scaled.altitude^2),data=regDf)
+model1 <- lm(log.length~sex+scaled.rel_quant+scaled.elevation+I(scaled.elevation^2),data=regDf)
 summary(model1)
 ```
 
@@ -435,9 +513,21 @@ ggplot(data=regDf, aes(x=scaled.rel_quant, y=log.length, group=sex, shape=sex,li
   geom_smooth(method = "lm", se=FALSE, color="black") + 
   xlab(bquote("Scaled relative quantities of "~italic("Ca.")~"Phytoplasma solani")) + # Set x-axis label
   ylab(bquote(~"log"[10]~"("~italic("Hyalesthes obsoletus")~"body size (mm))")) # Set y-axis label
-
 ```
 
+
+
+
+
+Without
+```{r}
+ggplot(data=regDfLRqPhy1, aes(x=log.rel_quant, y=log.length, group=sex, shape=sex,linetype=sex)) +  
+  theme_bw() +
+  geom_point() +
+  geom_smooth(method = "lm", se=FALSE, color="black") + 
+  xlab(bquote("Scaled relative quantities of "~italic("Ca.")~"Phytoplasma solani")) + # Set x-axis label
+  ylab(bquote(~"log"[10]~"("~italic("Hyalesthes obsoletus")~"body size (mm))")) # Set y-axis label
+```
 
 
 \newpage
@@ -453,22 +543,22 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 ```
 
 
-### Influence of phytoplasma infection and altitude on body size
+### Influence of phytoplasma infection and elevation on body size
 
-Comparison of full model with altitude and saturated model.
+Comparison of full model with elevation and saturated model.
 
-```{r reg_infect_altitude_body, include=TRUE,echo=TRUE}
-model1 <- lm(log.weight~sex+phytoplasma+altitude+I(altitude^2),data=regDf)
+```{r reg_infect_elevation_body, include=TRUE,echo=TRUE}
+model1 <- lm(log.weight~sex+phytoplasma+elevation+I(elevation^2),data=regDf)
 summary(model1)
 
-model2 <- lm(log.weight~sex+phytoplasma+altitude,data=regDf)
+model2 <- lm(log.weight~sex+phytoplasma,data=regDf)
 summary(model2)
 
 anova(model1,model2,test="LRT")
 ```
 
 P-Value of likelihood-ratio test is: `r NumToString(anova(model1,model2,test="LRT")[2,5])`.
-The likelihood ratio test is not significant. Thus, the variable "altitude" should not remain in the model.
+The likelihood ratio test is not significant. Thus, the variable "elevation" should not remain in the model.
 
 
 \newpage
@@ -539,15 +629,15 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 ```
 
 
-### Influence of rel. quantity and altitude on Ho body weight
+### Influence of rel. quantity and elevation on Ho body weight
 
-Comparison of full model with altitude and saturated model.
+Comparison of full model with elevation and saturated model.
 
 ```{r reg_rel_quant_altitude_weight, include=TRUE,echo=TRUE}
-model1 <- lm(log.weight~sex+scaled.rel_quant+altitude+I(altitude^2),data=regDf)
+model1 <- lm(log.weight~sex+scaled.rel_quant+elevation+I(elevation^2),data=regDf)
 summary(model1)
 
-model2 <- lm(log.weight~sex+scaled.rel_quant+altitude,data=regDf)
+model2 <- lm(log.weight~sex+scaled.rel_quant+elevation,data=regDf)
 summary(model2)
 
 anova(model1,model2,test="LRT")
@@ -556,7 +646,7 @@ anova(model1,model2,test="LRT")
 
 
 ```{r reg_rel_quant_altitude_weight2, include=TRUE,echo=TRUE}
-model1 <- lm(log.weight~sex+scaled.rel_quant+altitude,data=regDf)
+model1 <- lm(log.weight~sex+scaled.rel_quant+elevation,data=regDf)
 summary(model1)
 
 model2 <- lm(log.weight~sex+scaled.rel_quant,data=regDf)
@@ -566,7 +656,7 @@ anova(model1,model2,test="LRT")
 ```
 
 P-Value of likelihood-ratio test is: `r NumToString(anova(model1,model2,test="LRT")[2,5])`.
-The likelihood ratio test is not significant. Thus, the variable "altitude" should not remain in the model.
+The likelihood ratio test is not significant. Thus, the variable "elevation" should not remain in the model.
 
 \newpage
 
@@ -612,16 +702,16 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 ```
 
 
-### Influence of Ho body size and altitude on phytoplasma infection
+### Influence of Ho body size and elevation on phytoplasma infection
 
-Comparison of full model with altitude and saturated model.
+Comparison of full model with elevation and saturated model.
 
 
 ```{r reg_infect_altitude_phytoplasma, include=TRUE,echo=TRUE}
-model1 <- glm(phytoplasma~sex+scaled.length+altitude+I(altitude^2),data=regDf,family="binomial")
+model1 <- glm(phytoplasma~sex+scaled.length+elevation+I(elevation^2),data=regDf,family="binomial")
 summary(model1)
 
-model2 <- glm(phytoplasma~sex+scaled.length+altitude,data=regDf,family="binomial")
+model2 <- glm(phytoplasma~sex+scaled.length,data=regDf,family="binomial")
 summary(model2)
 
 anova(model1,model2,test="Chisq")
@@ -629,7 +719,7 @@ anova(model1,model2,test="Chisq")
 
 
 ```{r reg_infect_altitude_phytoplasma2, include=TRUE,echo=TRUE}
-model1 <- glm(phytoplasma~sex+scaled.length+altitude,data=regDf,family="binomial")
+model1 <- glm(phytoplasma~sex+scaled.length+elevation,data=regDf,family="binomial")
 summary(model1)
 
 model2 <- glm(phytoplasma~sex+scaled.length,data=regDf,family="binomial")
@@ -639,7 +729,7 @@ anova(model1,model2,test="Chisq")
 ```
 
 P-Value of likelihood-ratio test is: `r NumToString(anova(model1,model2,test="Chisq")[2,5])`.
-The likelihood ratio test is not significant. Thus, the variable "altitude" should not remain in the model.
+The likelihood ratio test is not significant. Thus, the variable "elevation" should not remain in the model.
 
 
 \newpage
@@ -667,7 +757,7 @@ summary(model1)
 ```
 
 
-Influence of phytoplasma infection on Ho body size is significant.
+Influence of Ho body size on phytoplasma infection is significant.
 
 
 
@@ -684,7 +774,7 @@ anova(model1, model2, test="Chisq")
 
 The likelihood ratio test is highly significant and we would conclude that the variable sex should remain in the model.
 
-Influence of phytoplasma infection on Ho body size is significant.
+Influence of Ho body size on phytoplasma infection is significant.
 
 
 
@@ -715,8 +805,6 @@ pValues <- doUnivariateTest(dfObs=observedDisease,dfSim=predictedDisease$t, fun=
 
 
 
-
-
 ```{r Reg_Inf_Bs_v1}
 newdata=data.frame(sex = factor(rep(c("m","w"), each = 346)),scaled.length=rep(seq(-3,3, length.out = 346),2))
 newdata <- newdata[-1,]
@@ -732,15 +820,34 @@ ggplot(ggplotDf, aes(x = length, y = fit)) +
   xlab(bquote(~italic("Hyalesthes obsoletus")~"body size (mm)")) # Set x-axis label
 
 
-# only male intercept
-(1/(1+exp(-1*(model1$coefficients[[3]]*0+model1$coefficients[[2]]*0+model1$coefficients[[1]]))))
-#[1] 0.2602797
-
-# female intercept
-(1/(1+exp(-1*(model1$coefficients[[3]]*0+model1$coefficients[[2]]+model1$coefficients[[1]]))))
-# [1] 0.4431047
-
-
+# # same plot but showing intercept 
+# newdata=data.frame(sex = factor(rep(c("m","w"), each = 346)),scaled.length=rep(seq(-5,5, length.out = 346),2))
+# newdata <- newdata[-1,]
+# newdata$length <- (newdata$scaled.length+0.941)+3.74 
+# 
+# predicted <- predict(model1, newdata = newdata, type = "response",se = TRUE)
+# 
+# ggplotDf <- data.frame(cbind(newdata,predicted))
+# ggplot(ggplotDf, aes(x = length, y = fit)) + 
+#   theme_bw()+
+#   geom_line(aes(colour = sex), size = 1) +
+#   ylab(bquote(italic("Hyalesthes obsoletus")~"infected with"~italic("Ca.")~"Phytoplasma solani")) + # Set y-axis label
+#   xlab(bquote(~italic("Hyalesthes obsoletus")~"body size (mm)")) # Set x-axis label
+# 
+# 
+# 
+# 
+# # Intercept
+# # Length 0 ~ scaled length -4.68115942
+# xIntercept=-4.68115942
+# 
+# # only male intercept
+# (1/(1+exp(-1*(model1$coefficients[[3]]*xIntercept+model1$coefficients[[2]]*0+model1$coefficients[[1]]))))
+# #[1] 0.3054007
+# 
+# # female intercept
+# (1/(1+exp(-1*(model1$coefficients[[3]]*xIntercept+model1$coefficients[[2]]+model1$coefficients[[1]]))))
+# #[1] 0.4949055
 
 
 
@@ -749,9 +856,10 @@ ggplot(ggplotDf, aes(x = length, y = fit)) +
 # 
 # loguni.m <- glm(response~predictor,family=binomial)
 # px <- seq(min(predictor),max(predictor),0.01)
+# px <- seq(0,max(predictor),0.01)
 # summary(loguni.m)
-# plot(regDf$length,regDf$phytoplasma,ylim=c(0,0.2))
-# lines(px,(1/(1+exp(-1*(loguni.m$coefficients[[2]]*px+loguni.m$coefficients[[1]])))),type="l")
+# plot(regDf$length,regDf$phytoplasma,ylim=c(0,0.2),xlim=c(0,6))
+# lines(px,(1/(exp(-1*(loguni.m$coefficients[[2]]*px+loguni.m$coefficients[[1]])))),type="l")
 # exp(coef(loguni.m))
 # # > (1/(1+exp(-1*(loguni.m$coefficients[[2]]*0+loguni.m$coefficients[[1]]))))
 # # [1] 0.1552624
@@ -789,15 +897,15 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 ```
 
 
-### Influence of Ho body size and altitude on rel. quantity
+### Influence of Ho body size and elevation on rel. quantity
 
-Comparison of full model with altitude and saturated model.
+Comparison of full model with elevation and saturated model.
 
 ```{r reg_rel_quant_altitude3, include=TRUE,echo=TRUE}
-model1 <- lm(rel_quant~sex+scaled.length+altitude+I(altitude^2),data=regDf)
+model1 <- lm(rel_quant~sex+scaled.length+elevation+I(elevation^2),data=regDf)
 summary(model1)
 
-model2 <- lm(rel_quant~sex+scaled.length+altitude,data=regDf)
+model2 <- lm(rel_quant~sex+scaled.length+elevation,data=regDf)
 summary(model2)
 
 anova(model1,model2,test="LRT")
@@ -805,7 +913,7 @@ anova(model1,model2,test="LRT")
 
 
 ```{r reg_rel_quant_altitude2, include=TRUE,echo=TRUE}
-model1 <- lm(rel_quant~sex+scaled.length+altitude,data=regDf)
+model1 <- lm(rel_quant~sex+scaled.length+elevation,data=regDf)
 summary(model1)
 
 model2 <- lm(rel_quant~sex+scaled.length,data=regDf)
@@ -815,7 +923,7 @@ anova(model1,model2,test="LRT")
 ```
 
 P-Value of likelihood-ratio test is: `r NumToString(anova(model1,model2,test="LRT")[2,5])`.
-The likelihood ratio test is not significant. Thus, the variable "altitude" should not remain in the model.
+The likelihood ratio test is not significant. Thus, the variable "elevation" should not remain in the model.
 
 \newpage
 
@@ -873,10 +981,29 @@ ggplot(data=regDf, aes(x=scaled.length, y=log.rel_quant)) +
   geom_smooth(method = "lm",se=FALSE, color="black") + 
   ylab(bquote(~"log"[10]~"("~"Relative quantities of "~italic("Ca.")~"Phytoplasma solani)")) + # Set x-axis label
   xlab(bquote(~"scaled"~italic("Hyalesthes obsoletus")~"body size (mm)")) # Set y-axis label
+```
 
+
+
+
+Only records with qPCR values >0
+```{r reg_rel_quantPhy1_sex_length, include=TRUE,echo=TRUE}
+model1 <- lm(log.rel_quant~scaled.length,data=regDfPhy1)
+summary(model1)
+```
 
 ```
 
+
+```{r}
+ggplot(data=regDfLRqPhy1, aes(x=scaled.length, y=log.rel_quant)) +  
+  theme_bw() +
+  geom_point(aes(x=scaled.length, y=log.rel_quant, shape=sex)) +
+  #geom_smooth(method = "lm", formula=y~x+I(x^2),se=FALSE, color="black") + 
+  geom_smooth(method = "lm",se=FALSE, color="black") + 
+  ylab(bquote(~"log"[10]~"("~"Relative quantities of "~italic("Ca.")~"Phytoplasma solani)")) + # Set x-axis label
+  xlab(bquote(~"scaled"~italic("Hyalesthes obsoletus")~"body size (mm)")) # Set y-axis label
+```
 
 
 \newpage
@@ -886,28 +1013,28 @@ ggplot(data=regDf, aes(x=scaled.length, y=log.rel_quant)) +
 
 # Disease
 
-Models are using the BnHoPhy object.
+Models are using the BnHoQpcr object.
 
 ## Multivariate model
 
 ```{r}
-model1 <- glm(cbind(ill,N)~sex+length+phytoplasma+altitude,data=BnHoPhy,family="binomial")
+model1 <- glm(cbind(bnIll,bnTotal)~sex_ratio+length+elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model1)
 
-model2 <- glm(cbind(ill,N)~sex+length+phytoplasma,data=BnHoPhy,family="binomial")
+model2 <- glm(cbind(bnIll,bnTotal)~sex_ratio+length,data=BnSiteHoQpcr,family="binomial")
 summary(model2)
 
 anova(model1,model2,test="Chisq")
 ```
 
-Altitude significant, should stay in model
+elevation significant, should stay in model
 
 ```{r}
-model1 <- glm(cbind(ill,N)~sex+length+phytoplasma+altitude,data=BnHoPhy,family="binomial")
+model1 <- glm(cbind(bnIll,bnTotal)~phytoplasma_pres+elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model1)
 
 
-model2 <- glm(cbind(ill,N)~sex+length+altitude,data=BnHoPhy,family="binomial")
+model2 <- glm(cbind(bnIll,bnTotal)~elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model2)
 
 anova(model1,model2,test="Chisq")
@@ -917,10 +1044,10 @@ Phytoplasma not significant, should not stay in model.
 
 
 ```{r}
-model1 <- glm(cbind(ill,N)~sex+length+altitude,data=BnHoPhy,family="binomial")
+model1 <- glm(cbind(bnIll,bnTotal)~sex_ratio+length+elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model1)
 
-model2 <- glm(cbind(ill,N)~sex+altitude,data=BnHoPhy,family="binomial")
+model2 <- glm(cbind(bnIll,bnTotal)~sex_ratio+elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model2)
 
 anova(model1,model2,test="Chisq")
@@ -930,28 +1057,28 @@ The likelihood ratio test is highly significant and we would conclude that the v
 
 
 ```{r}
-model1 <- glm(cbind(ill,N)~sex+length+altitude,data=BnHoPhy,family="binomial")
+model1 <- glm(cbind(bnIll,bnTotal)~sex_ratio+length+elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model1)
 
-model2 <- glm(cbind(ill,N)~length+altitude,data=BnHoPhy,family="binomial")
+model2 <- glm(cbind(bnIll,bnTotal)~length+elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model2)
 
 anova(model1,model2,test="Chisq")
 ```
 
-The likelihood ratio test is highly significant and we would conclude that the variable sex should remain in the model.
+The likelihood ratio test is not significant and we would conclude that the variable sex-ratio should not remain in the model.
 
 
 
 ```{r}
-model1 <- glm(cbind(ill,N)~scaled.length+sex*scaled.altitude,data=BnHoPhy,family="binomial")
+model1 <- glm(cbind(bnIll,bnTotal)~scaled.length*scaled.elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model1)
 d2(model1)
 ```
 
 Interaction is significant.
 ```{r Bn_Bs_Altitude}
-model1 <- glm(cbind(ill,N-ill)~as.factor(sex)+scaled.length+scaled.altitude+I(scaled.altitude^2),data=BnHoPhy,family="binomial")
+model1 <- glm(cbind(bnIll,bnTotal)~scaled.length+scaled.elevation+I(scaled.elevation^2),data=BnSiteHoQpcr,family="binomial")
 summary(model1)
 d2(model1)
 NumToString(as.numeric(mtable(model1)$summaries[[4]]))
@@ -959,13 +1086,13 @@ length(model1$fitted.values) # how many variables
 
 
 # Scaled relative quantities -> but only 7 data points
-model2 <- glm(cbind(ill,N)~sex+scaled.rel_quant+altitude+I(scaled.altitude^2),data=BnHoPhy,family="binomial")
+model2 <- glm(cbind(bnIll,bnTotal)~sex_ratio+scaled.rel_quant+scaled.elevation+I(scaled.elevation^2),data=BnSiteHoQpcr,family="binomial")
 summary(model2)
 d2(model2)
 NumToString(as.numeric(mtable(model2)$summaries[[4]]))
 length(model2$fitted.values) # how many variables
 
-model3 <- glm(cbind(ill,N)~sex+scaled.rel_quant+altitude,data=BnHoPhy,family="binomial")
+model3 <- glm(cbind(bnIll,bnTotal)~sex_ratio+scaled.rel_quant+elevation,data=BnSiteHoQpcr,family="binomial")
 summary(model3)
 d2(model3)
 NumToString(as.numeric(mtable(model3)$summaries[[4]]))
@@ -973,20 +1100,18 @@ length(model3$fitted.values) # how many variables
 
 ```
 
-
-```{r Bn_Bs_Altitude_Diagnosis}
-model1 <- glm(cbind(ill,N-ill)~as.factor(sex)+scaled.length+scaled.altitude+I(scaled.altitude^2),data=BnHoPhy,family="binomial")
+```{r Bn_Bs_Elevation_Diagnosis}
+df <- BnSiteHoQpcr[,c("sex_ratio","scaled.length","scaled.elevation","bnIll","bnTotal")]
+df <- na.omit(df)
+model1 <- glm(cbind(bnIll,bnTotal)~sex_ratio+scaled.length+scaled.elevation+I(scaled.elevation^2),data=df,family="binomial")
 summary(model1)
-```
-
-```{r}
 d2(model1)
 NumToString(as.numeric(mtable(model1)$summaries[[4]]))
 length(model1$fitted.values) # how many variables
 
 lroc(model1)$auc # library epicalc
 
-observedDisease<-BnHoPhy$ill/BnHoPhy$N
+observedDisease<-df$bnIll/df$bnTotal
 predictedDisease <- round(predict.glm(model1,type="response"),3) # model1$fitted.value
 
 
@@ -1004,13 +1129,10 @@ residualsPearson<-residuals(model1, type = "pearson")
 plot(observedDisease,residualsPearson)
 abline(c(0,0),c(1,0))
 
-df <- BnHoPhy[,c("ill","N","sex","scaled.rel_quant","scaled.altitude")]
-df <- na.omit(df)
 
-df <- BnHoPhy
-observedDisease<-df$ill/(df$N-df$ill)
+observedDisease<-df$bnIll/(df$bnTotal-df$bnIll)
 set.seed(2015)
-predictedDisease <- boot(data=df,statistic=bootPredict, R=1000,formula=cbind(ill,N-ill)~sex+scaled.length+scaled.altitude+I(scaled.altitude))
+predictedDisease <- boot(data=df,statistic=bootPredict, R=1000,formula=cbind(bnIll,bnTotal)~sex_ratio+scaled.length+scaled.elevation+I(scaled.elevation))
 
 pValues <- doUnivariateTest(dfObs=observedDisease,dfSim=predictedDisease$t, fun=mean)
 ```
@@ -1019,42 +1141,37 @@ pValues <- doUnivariateTest(dfObs=observedDisease,dfSim=predictedDisease$t, fun=
 
 BnHoPhy (binomial: ill,N) needs to be untangled.
 ```{r}
-BnHoPhyVine <- BnHoPhy[rep(seq_len(nrow(BnHoPhy)),BnHoPhy$N),] # duplicates each row N times
+df <- BnSiteHoQpcr
+BnHoPhyVine <- df[rep(seq_len(nrow(df)),df$bnTotal),] # duplicates each row N times
 #repeat each binomial: ill=1,N=8 -> 1 0 0 0 0 0 0 0 
 illVines <- rep(0,nrow(BnHoPhyVine))
 j=1
 #for(i in 1:2){
-for(i in 1:nrow(BnHoPhy)){
-  if(BnHoPhy$ill[i]>0) {illVines[j:(j+(BnHoPhy$ill[i]-1))] <- rep(1,BnHoPhy$ill[i])}
-j=j+(BnHoPhy$N[i])
+for(i in 1:nrow(df)){
+  if(df$bnIll[i]>0) {illVines[j:(j+(df$bnIll[i]-1))] <- rep(1,df$bnIll[i])}
+j=j+(df$bnTotal[i])
 }
 
 BnHoPhyVine$ill <- illVines
 ```
 
-```{r Disease_glm_logistic}
-model1 <- glm(ill~sex+scaled.length+scaled.altitude+I(scaled.altitude^2),data=BnHoPhyVine,family="binomial")
+```{r Disease_glm_logistic_diagnosis_fit}
+df <- BnHoPhyVine[,c("ill","sex_ratio","scaled.length","scaled.elevation")]
+df <- na.omit(df)
+model1 <- glm(ill~sex_ratio+scaled.length+scaled.elevation+I(scaled.elevation^2),data=df,family="binomial")
 summary(model1)
 
 
 
-model2 <- glm(cbind(ill,N-ill)~sex+scaled.length+scaled.altitude+I(scaled.altitude^2),data=BnHoPhy,family="binomial")
-summary(model2)
-```
+# model2 <- glm(cbind(bnIll,bnTotal)~sex_ratio+scaled.length+scaled.elevation+I(scaled.elevation^2),data=df,family="binomial")
+# summary(model2)
 
-```{r}
-library(Hmisc)
-#describe(BnHoPhyVine)
-
-test <- glm(ill~sex+phytoplasma+scaled.altitude+I(scaled.altitude^2),data=BnHoPhyVine,family="binomial")
-summary(test)
-
-test <- glm(ill~sex+scaled.rel_quant+scaled.altitude+I(scaled.altitude^2),data=BnHoPhyVine,family="binomial")
-summary(test)
-```
+# library(Hmisc)
+# #describe(BnHoPhyVine)
+# test <- glm(ill~sex_ratio+scaled.rel_quant+scaled.elevation+I(scaled.elevation^2),data=df,family="binomial")
+# summary(test)
 
 
-```{r Disease_glm_logistic_diagnosis_fit}
 glm1<-model1
 glm0 <- update(glm1,.~1) # only intercept
 
@@ -1089,26 +1206,25 @@ d2(model1)
 (1-exp(2*(LL0-LLf)/N)) # Cox & Snell
 (1-exp(2*(LL0-LLf)/N))/(1-exp(2*LL0/N)) # Nagelkerke
 # source: www.uni-kiel.de/psychologie/rexrepos/posts/regressionLogistic
+
+
+
+observedDisease<-df$ill # BnSiteHoQpcr$bnIll/BnSiteHoQpcr$bnTotal
+predictedDisease <- round(predict(glm1,type="response"),3) # model1$fitted.value
+
 ```
 
 Results from GLM:  
 - significant different from NULL model  
-- AUC: 0.71  
-- explained deviance: 4.8%  
-- Nagelkerke R2: 0.05
-
-
-```{r}
-df <- BnHoPhyVine
-observedDisease<-df$ill # BnHoPhy$ill/BnHoPhy$N
-predictedDisease <- round(predict(glm1,type="response"),3) # model1$fitted.value
-```
+- AUC: 0.68  
+- explained deviance: 3%  
+- Nagelkerke R2: 0.03
 
 ```{r Disease_glm_logistic_diagnosis_residuals, eval=FALSE}
 # Comparison simulalted with observed occurrences
 
 set.seed(2015)
-predictedDisease <- boot(data=df,statistic=bootPredict, R=1000,formula=ill~sex+scaled.length+scaled.altitude+I(scaled.altitude))
+predictedDisease <- boot(data=df,statistic=bootPredict, R=1000,formula=ill~sex_ratio+scaled.length+scaled.elevation+I(scaled.elevation))
 
 pValues <- doUnivariateTest(dfObs=observedDisease,dfSim=predictedDisease$t, fun=mean)
 
@@ -1117,14 +1233,14 @@ pValues <- doUnivariateTest(dfObs=observedDisease,dfSim=predictedDisease$t, fun=
 
 ### ONLY for Proportions,i.e. glm with cbind(ill,N-ill) ###
 frequencyObs  <- table(observedDisease)  / length(observedDisease)
-frequencyPred <- table(predictedDisease) / length(predictedDisease)
+frequencyPred <- table(predictedDisease$t0) / length(predictedDisease$t0)
 
 combined <- rbind(c(frequencyObs, rep(NA,  (length(frequencyPred) - length(frequencyObs)))), frequencyPred) # empty frequencies
 
 
 barplot(combined, beside = T)
 
-plot(observedDisease,predictedDisease)
+plot(observedDisease,predictedDisease$t0)
 abline(c(0,0),c(1,1))
 
 
@@ -1141,14 +1257,14 @@ Graphical visualisation of multivariate BN model using Lattice
 ```{r}
 # extract coefficients
 # coef(model1)
-#     (Intercept)            sexw   scaled.length scaled.altitude 
+#     (Intercept)            sexw   scaled.length scaled.elevation 
 #      -5.7365339       0.9464619      -0.4473926       0.3245303
 
 sexmCoef      <- coef(model1)[1]
 sexwCoef      <- coef(model1)[1]+coef(model1)[2]
 lengthCoef    <- coef(model1)[3]
-altitudeCoef  <- coef(model1)[4]
-altitude2Coef <- coef(model1)[5]
+elevationCoef  <- coef(model1)[4]
+elevation2Coef <- coef(model1)[5]
 
 library(lattice)
 lattice.options(default.theme=col.whitebg)
@@ -1167,7 +1283,7 @@ newcols <- colorRampPalette(c("grey90", "grey10")) # grid color
 
 
 x<-model1$model$scaled.length
-y<-model1$model$scaled.altitude
+y<-model1$model$scaled.elevation
 
 #g<-expand.grid(x=x,y=y)
 g<-expand.grid(x=seq(-2,2,length.out=30),y=seq(-2,2,length.out=30))
@@ -1176,8 +1292,8 @@ for (s in 1:length(sexCoef)){
 g$z<-1/(1+exp(-1*(
 sexCoef[s] +  			    # intecept/ sex-category
 lengthCoef*g$x +        # scaled length
-altitudeCoef*g$y +			# scaled altitude
-altitude2Coef*g$y*g$y  # bio12_worldclim.sq
+elevationCoef*g$y +			# scaled elevation
+elevation2Coef*g$y*g$y  # bio12_worldclim.sq
 )))
 
 # screen to rotate 
@@ -1197,8 +1313,8 @@ colorkey = TRUE,
 screen = list(z=225,x = -55),
 #xlab=list(label=bquote(~"scaled"~italic("Hyalesthes obsoletus")~"body size (mm)"),cex= 0.5,rot=25),
 lab=list(label=substitute(expression(paste(a," ",italic(b)," ",c)), list(a="Scaled",b="Hyalesthes obsoletus",c="body size (mm)")),cex= 0.8,rot=25),
-lab=list(label=expression(~~"(Scaled altitude (m a.s.l.))"^2),cex= 0.8,rot=-25),
-#ylab=list(label="Scaled altitude (m a.s.l.)",cex= 0.5,rot=-25),
+lab=list(label=expression(~~"(Scaled elevation (m a.s.l.))"^2),cex= 0.8,rot=-25),
+#ylab=list(label="Scaled elevation (m a.s.l.)",cex= 0.5,rot=-25),
 lab=list(label= "Bois noir disease prevalence",cex= 0.8,rot=90),
 shade=FALSE,
 par.settings=list(background=list(col="transparent"))
@@ -1216,13 +1332,17 @@ plot(fig.1.2,split=c(2,1,2,1),newpage=FALSE)
 
 
 ```{r Reg_Dis_RelQuant}
+df <- BnHoPhyVine[,c("ill","scaled.rel_quant")]
+df <- na.omit(df)
+model1 <- glm(ill~scaled.rel_quant,data=df,family="binomial")
+summary(model1)
 df$disease.pred <- as.numeric(predict(model1,type="response"))
 
-ggplot(data=df, aes(x=scaled.rel_quant, y=disease.pred, group=sex, shape=sex,linetype=sex)) +  
+ggplot(data=df, aes(x=scaled.rel_quant, y=ill)) +  
   theme_bw()+
   geom_point() +
    stat_smooth(method = "glm",family="binomial", se=FALSE, color="black",) + 
-   #stat_smooth(aes(x=scaled.length, y=phytoplasma),data=regDfPredicted,stat="identity") + 
+   #stat_smooth(aes(x=scaled.length, y=phytoplasma_pres),data=df,stat="identity") + 
   xlab(bquote(~"scaled "~italic("Ca.")~"Phytoplasma solani relative quantities")) + # Set x-axis label
   ylab(bquote(~"Bois noir disease incidence")) # Set x-axis label
 ```

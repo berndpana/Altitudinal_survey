@@ -1,4 +1,48 @@
 
+
+
+########################
+#### date and time #####
+########################
+
+# Date format - forms part of names of created files or graphs
+today<-format(Sys.time(), "%Y.%m.%d")
+
+# The IDate class is a simple wrapper around the Date 
+# class that tries to keep an integer storage format. The ITime class, the 
+# time of day, is stored as the number of seconds in a day.
+#source("C:/Programme/R/R-2.11.1/library/IDateTime.R")
+
+
+
+# total run time
+# Usage:
+# before run enter: start.time<-Sys.time()
+# after run enter: end.time<-Sys.time();run.time(end.time)
+
+
+run.time<-function(end.time){
+  run.sec<-trunc(difftime(end.time,start.time,unit="sec"))[[1]]
+  run.min<-trunc(difftime(end.time,start.time,unit="mins"))[[1]]
+  run.hours<-trunc(difftime(end.time,start.time,unit="hours"))[[1]]
+  
+  if(run.hours==0){
+    m<-run.min*60
+    run.sec2<-run.sec-m
+    print(paste("Total run time: ",run.min," minutes and ",run.sec2," seconds",sep=""))}
+  
+  if(run.hours>0){
+    h<-run.hours*60
+    run.min2<-run.min-h
+    m<-run.min*60
+    run.sec2<-run.sec-m
+    print(paste("Total run time: ",run.hours," hours and ", run.min2," minutes and ",run.sec2," seconds",sep=""))}
+}
+
+
+
+
+
 #******************************  Data exploration ***************************#
 
 
@@ -50,6 +94,15 @@ NumToString <- function(nval, sigdig=3, xpcut=4) {   # Filter out zero as a spec
   if (digs > xpcut) { fchar <- "e"; digs <- sigdig - 1 } else fchar <- "f" 
   sprintf(paste("%.", digs, fchar, sep=""), nval) }
 #library(broman) # rounding
+
+
+
+# Logit's
+logit<- function(x) log(x/(1-x))
+inv.logit<-function(x) 1/(1+exp(-x))
+
+#inv.logit<-function(x) plogis(x)  # exp(x)/(1+exp(x))
+#logit<-function(x) qlogis(x)
 
 
 
