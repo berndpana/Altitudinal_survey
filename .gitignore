@@ -43,3 +43,11 @@ data/Kartierung2.xls
 r-code/01_preparation_rawdata.Rmd
 
 r-code/01_preparation_workingdata.Rmd
+
+*.html
+
+*.html
+
+r-code/03_stat_analyses.html
+
+*.html
