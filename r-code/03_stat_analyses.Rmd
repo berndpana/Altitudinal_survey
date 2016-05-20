@@ -89,15 +89,15 @@ weight & length = 3
 df     <- hoSurveySitesQpcr
 df1    <- df[-which(is.na(df$length)),]
 WLqpcr <-df1[-which(df1$problem_weight_length>0),] # discard incomplete weights and length
-WLqpcr<-data.frame(subset(WLqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+WLqpcr<-data.frame(subset(WLqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","phytoplasma_type","phytoplasma")))
 
 # discard individuals with incomplete values for weight
 Wqpcr<-df1[-which(df1[,"problem_weight_length"]==1 | df1[,"problem_weight_length"]==3),] # discard incomplete weights
-Wqpcr<-data.frame(subset(Wqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+Wqpcr<-data.frame(subset(Wqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","phytoplasma_type","phytoplasma")))
 
 # discard individuals with incomplete values for length
 Lqpcr<-df1[-which(df1[,"problem_weight_length"]==2 | df1[,"problem_weight_length"]==3),] # discard incomplete lengths
-Lqpcr<-data.frame(subset(Lqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","rel_quant_sd","phytoplasma_type","phytoplasma")))
+Lqpcr<-data.frame(subset(Lqpcr,select=c("ho_id","sex","elevation","length","weight","type_a","type_b","rel_quant","phytoplasma_type","phytoplasma")))
 ```
 
 
@@ -165,6 +165,7 @@ regDfL <- Lqpcr
 regDfL$log.length <- log10(regDfL$length)
 regDfL$scaled.length <- scale(regDfL$length)
 regDfL$scaled.elevation <- scale(regDfL$elevation)
+regDfL$phytoplasma <- as.factor(regDfL$phytoplasma)
 
 regDfLRq <- LqpcrRelQuant
 regDfLRq$log.length <- log10(regDfLRq$length)
@@ -172,29 +173,42 @@ regDfLRq$scaled.length <- scale(regDfLRq$length)
 regDfLRq$scaled.rel_quant <- scale(regDfLRq$rel_quant)
 regDfLRq$log.rel_quant <- log10(regDfLRq$rel_quant+1)
 regDfLRq$scaled.elevation <- scale(regDfLRq$elevation)
-
+regDfLRq$phytoplasma <- as.factor(regDfLRq$phytoplasma)
 
 # For relative quantification without 0
-regDfLRqPhy1 <- LqpcrRelQuant[LqpcrRelQuant$phytoplasma==1 & LqpcrRelQuant$rel_quant>0,]
+nrow(LqpcrRelQuant[LqpcrRelQuant$phytoplasma==1,])
+#[1] 58 -> one record with length issues
+# id's von Gabriele: 42, 85, 429,466, 602
+regDfLRqPhy1 <- LqpcrRelQuant[LqpcrRelQuant$phytoplasma==1 & !(LqpcrRelQuant$ho_id %in% c(42, 85, 429,466, 602)),]
 regDfLRqPhy1$log.length <- log10(regDfLRqPhy1$length)
 regDfLRqPhy1$scaled.length <- scale(regDfLRqPhy1$length)
 regDfLRqPhy1$scaled.rel_quant <- scale(regDfLRqPhy1$rel_quant)
 regDfLRqPhy1$log.rel_quant <- log10(regDfLRqPhy1$rel_quant+1)
 regDfLRqPhy1$scaled.elevation <- scale(regDfLRqPhy1$elevation)
+regDfLRqPhy1$phytoplasma <- as.factor(regDfLRqPhy1$phytoplasma)
 
+# only type a
+regDfLRqPhy1a <- LqpcrRelQuant[LqpcrRelQuant$type_a==1 & !(LqpcrRelQuant$ho_id %in% c(42, 85, 429,466, 602)),]
+regDfLRqPhy1a$log.length <- log10(regDfLRqPhy1a$length)
+regDfLRqPhy1a$scaled.length <- scale(regDfLRqPhy1a$length)
+regDfLRqPhy1a$scaled.rel_quant <- scale(regDfLRqPhy1a$rel_quant)
+regDfLRqPhy1a$log.rel_quant <- log10(regDfLRqPhy1a$rel_quant+1)
+regDfLRqPhy1a$scaled.elevation <- scale(regDfLRqPhy1a$elevation)
+regDfLRqPhy1a$phytoplasma <- as.factor(regDfLRqPhy1a$phytoplasma)
 
 
 # weight
 regDfW <- Wqpcr
 regDfW$log.weight <- log10(regDfW$weight)
 regDfW$scaled.weight <- scale(regDfW$weight)
-
+regDfW$phytoplasma <- as.factor(regDfW$phytoplasma)
 
 regDfWRq <- WqpcrRelQuant
 regDfWRq$log.weight <- log10(regDfWRq$weight)
 regDfWRq$scaled.weight <- scale(regDfWRq$weight)
 regDfWRq$scaled.rel_quant <- scale(regDfWRq$rel_quant)
 regDfWRq$log.rel_quant <- log10(regDfWRq$rel_quant)
+regDfWRq$phytoplasma <- as.factor(regDfWRq$phytoplasma)
 
 BnSiteHoQpcr$log.length <- log10(BnSiteHoQpcr$length)
 BnSiteHoQpcr$scaled.length <- scale(BnSiteHoQpcr$length)
@@ -223,7 +237,7 @@ regDf$sex <- relevel(regDf$sex,ref="m")
 
 Comparison of full model with elevation and saturated model.
 
-```{r reg_infect_altitude, include=TRUE,echo=TRUE}
+```{r reg_infect_sqelevation, include=TRUE,echo=TRUE}
 model1 <- lm(log.length~sex+phytoplasma+scaled.elevation + I(scaled.elevation^2),data=regDf)
 summary(model1)
 
@@ -241,8 +255,8 @@ The likelihood ratio test is significant. Thus, the variable "squared elevation"
 
 Comparison of full model with squared elevation and saturated model.
 
-```{r reg_infect_altitude, include=TRUE,echo=TRUE}
-model1 <- lm(log.length~sex+phytoplasma+scaled.elevation + I(scaled.elevation^2),data=regDf)
+```{r reg_infect_elevation, include=TRUE,echo=TRUE}
+model1 <- lm(log.length~sex+phytoplasma+scaled.elevation,data=regDf)
 summary(model1)
 
 model2 <- lm(log.length~sex+phytoplasma,data=regDf)
@@ -294,7 +308,6 @@ plot(effect("phytoplasma:sex", model1), multiline = TRUE)
 ```{r reg_infect, include=TRUE,echo=TRUE}
 # choose reference categories
 regDf$sex <- relevel(regDf$sex,ref="m")
-regDf$phytoplasma <- relevel(regDf$phytoplasma,ref="0")
 model1 <- lm(log.length~sex+phytoplasma+scaled.elevation + I(scaled.elevation^2),data=regDf)
 summary(model1)
 ```
@@ -383,7 +396,6 @@ summary(log.length~sex+phytoplasma+elevation,data=regDf, method = "cross", fun =
 4 different plots using ggplot
 
 ```{r}
-
 df <- regDf
 df$scaled.elevation <- as.vector(df$scaled.elevation)
 df$scaled.elevation.sq <- df$scaled.elevation*df$scaled.elevation
@@ -868,7 +880,7 @@ ggplot(ggplotDf, aes(x = length, y = fit)) +
 
 
 
-
+#### PLot for paper - Influence of *H. obsoletus* body size on *Ca.* Phytoplasma solani infection
 ```{r Reg_Inf_Bs_v2}
 regDf$phytoplasma.pred <- predict(model1,type="response")
 
@@ -985,15 +997,13 @@ ggplot(data=regDf, aes(x=scaled.length, y=log.rel_quant)) +
 
 
 
-
-Only records with qPCR values >0
-```{r reg_rel_quantPhy1_sex_length, include=TRUE,echo=TRUE}
-model1 <- lm(log.rel_quant~scaled.length,data=regDfPhy1)
+#### PLot for paper - Influence of Rel. quantity on body size
+- only records with qPCR values >0  
+- not QPCR values from Gabriele Schiro  
+```{r reg_rel_quantPhy1_length, include=TRUE,echo=TRUE}
+model1 <- lm(log.rel_quant~scaled.length,data=regDfLRqPhy1)
 summary(model1)
 ```
-
-```
-
 
 ```{r}
 ggplot(data=regDfLRqPhy1, aes(x=scaled.length, y=log.rel_quant)) +  
@@ -1004,6 +1014,31 @@ ggplot(data=regDfLRqPhy1, aes(x=scaled.length, y=log.rel_quant)) +
   ylab(bquote(~"log"[10]~"("~"Relative quantities of "~italic("Ca.")~"Phytoplasma solani)")) + # Set x-axis label
   xlab(bquote(~"scaled"~italic("Hyalesthes obsoletus")~"body size (mm)")) # Set y-axis label
 ```
+
+
+
+#### Influence of Rel. quantity on body size - *Ca.* P. solani type a
+- only records with qPCR values >0  
+- not QPCR values from Gabriele Schiro  
+- only type_a  
+```{r reg_rel_quantPhy1a_length, include=TRUE,echo=TRUE}
+model1 <- lm(log.rel_quant~scaled.length,data=regDfLRqPhy1a)
+summary(model1)
+```
+
+```{r}
+ggplot(data=regDfLRqPhy1a, aes(x=scaled.length, y=log.rel_quant)) +  
+  theme_bw() +
+  geom_point(aes(x=scaled.length, y=log.rel_quant, shape=sex)) +
+  #geom_smooth(method = "lm", formula=y~x+I(x^2),se=FALSE, color="black") + 
+  geom_smooth(method = "lm",se=FALSE, color="black") + 
+  ylab(bquote(~"log"[10]~"("~"Relative quantities of "~italic("Ca.")~"Phytoplasma solani type a)")) + # Set x-axis label
+  xlab(bquote(~"scaled"~italic("Hyalesthes obsoletus")~"body size (mm)")) # Set y-axis label
+```
+
+
+
+
 
 
 \newpage

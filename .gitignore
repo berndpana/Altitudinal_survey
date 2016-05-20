@@ -63,3 +63,23 @@ data/Ho_pres.txt
 data/ho_phy_bn_survey_rawdata.RData
 
 r-code/03_stat_analyses.html
+
+*.svg
+
+*.log
+
+*.lof
+
+*.gz
+
+data/Ho_qPCR_Final.xls
+
+data/Ho_qPCR_Final.txt
+
+data/Ho_qPCR_Final.csv
+
+data/ho_qpcr_bn_survey_workingdata.RData
+
+r-code/figures/figures-concordance.tex
+
+r-code/figures/figures.tex

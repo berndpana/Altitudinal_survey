@@ -72,6 +72,16 @@ WLqpcr <-df1[-which(df1$problem_weight_length>0),] # discard incomplete weights 
 # # [1] 293
 # nrow(WLqpcr[WLqpcr$sex=="w",])
 # # [1] 396
+
+# incomplete length discarded
+Lqpcr <-df1[-which(df1$problem_weight_length>1),] # discard incomplete length
+
+# nrow(Lqpcr[Lqpcr$sex=="m",])
+# # [1] 292
+# nrow(Lqpcr[Lqpcr$sex=="w",])
+# # [1] 396
+
+
 ```
 
 ## Summary statistics of *H. obsoletus*
@@ -83,9 +93,19 @@ dfSumAllyears <- df %>% group_by(site_id,year=as.numeric(format(hoSurvey$date, "
 dfSumPresAllYears <- dfSumAllyears %>% group_by(year) %>% summarise(hoNtotal=n(),hoAbscence=sum(hoCount==0),hoPresence=sum(hoCount>0),hoIncidence=round(sum(hoCount>0)/n(),2),hoAbundance=sum(hoCount));dfSumPresAllYears
 ```
 
-#### Body size of *H. obsoletus*
+1132 sites: presence in 287, absence in 845  
+
+### *H. obsoletus* - repeated sampling
+```{r, echo=FALSE,results="hide"}
+#site - how many times samples - presences abcesences - incidence
+hoRepaetedSampling <- data.frame(df %>% group_by(site_id) %>% summarise(repeatedSampling = n(),hoPresences=sum(ho_pres>0),hoAbsences=sum(ho_pres==0))) %>% mutate(hoIncidence=hoPresences/repeatedSampling);hoRepaetedSampling 
+```
+
+How many sites were sampled at least 2 times? `r nrow(hoRepaetedSampling[hoRepaetedSampling$repeatedSampling>1,])`.  
+
+### Body size of *H. obsoletus*
 ```{r hist_body_length}
-BSg <- ggplot(WLqpcr)
+BSg <- ggplot(Lqpcr)
 
 BSgAll<-BSg+
   geom_bar(aes(x=length, ),
@@ -126,6 +146,9 @@ subplot <- function(x, y) viewport(layout.pos.row = x,
 vplayout()
 print(BSgAll, vp = subplot(1, 1))
 print(BSgGender, vp = subplot(2, 1))
+
+
+print(BSgGender, vp = subplot(1, 1))
 ```
 
 
@@ -134,12 +157,39 @@ print(BSgGender, vp = subplot(2, 1))
 \newpage
 
 ## Summary statistics of '*Ca.* Phytoplasma solani'
-```{r Phy summary,echo=TRUE}
+```{r}
 df <- hoSurveySitesQpcr
+```
+
+
+
+
+```{r, echo=FALSE,results="hide"}
+# how many H. obsoletus were analysed
+result <- table(df$phytoplasma);result
+#table(df[is.na(df$problem_weight_length) || df$problem_weight_length==2,"phytoplasma"])
+df1 <- df[!is.na(df$phytoplasma),] # only phytoplasma occurrences
+resultBSproblem <- table(df1[,c("problem_weight_length","phytoplasma")]);resultBSproblem
+phytoplasmaAnalysis <- data.frame(df1 %>% group_by(site_id) %>% summarise(analyzedInsects = n(),phytoplasmaPresences=sum(phytoplasma>0),phytoplasmaAbsences=sum(phytoplasma==0))) %>% mutate(phytoplasmaIncidence=phytoplasmaPresences/analyzedInsects);phytoplasmaAnalysis
+```
+In total, `r sum(result)` *H. obsoletus* individuals were analysed for *Ca.* P. solani infection. The phytoplasma was found in `r sum(phytoplasmaAnalysis[,3])` insects (incidence: `r sum(phytoplasmaAnalysis[,3])/sum(result)`).  
+Analysed *H. obsoletus* without weight problems: `r sum(result)-sum(resultBSproblem[c(1,3),])`.  
+Analysed *H. obsoletus* without length problems: `r sum(result)-sum(resultBSproblem[c(2,3),])`, (292 males and 399 females).   
+
+```{r, echo=FALSE,results="hide"}
+phytoplasmaAnalysis <- data.frame(df1 %>% group_by(site_id) %>% summarise(analyzedInsects = n(),phytoplasmaPresences=sum(phytoplasma>0),phytoplasmaAbsences=sum(phytoplasma==0))) %>% mutate(phytoplasmaIncidence=phytoplasmaPresences/analyzedInsects);phytoplasmaAnalysis
+
+analyzedInsectYears <- table(as.numeric(format(df1$date, "%Y")));analyzedInsectYears
+```
+Analyzed *H. obsoletus* in the years: 2007: `r analyzedInsectYears[1]`; 2008:`r analyzedInsectYears[2]`; 2010: `r analyzedInsectYears[3]`; 2011: `r analyzedInsectYears[4]`;2012: `r analyzedInsectYears[5]`; 201:3 `r analyzedInsectYears[6]`.  
+
+```{r,echo=TRUE}
 # display how many males and females are infected
 table(df[df$type_a==1,"sex"]) # type a
 table(df[df$type_b==1,"sex"]) # type b
+```
 
+```{r Phy summary,echo=TRUE}
 # Chi-square goodness-of-fit test
 # Observed = expected sex ratio
 observed<-as.numeric(table(WLqpcr$sex))   # observed frequencies
@@ -150,6 +200,8 @@ chisq.test(observed,p=expected/sum(table(WLqpcr$sex)))
 
 Da der empirische X-squared Wert (16) erheblich groesser ist als X-squared(1,95%)=3.84, wird H0 verworfen und H1 akzeptiert:  
 -> Die Haeufigkeiten in Bezug auf Phytoplasmeninfektionen fuer maennliche und weibliche Insekten sind nicht gleichverteilt.  
+
+
 
 
 

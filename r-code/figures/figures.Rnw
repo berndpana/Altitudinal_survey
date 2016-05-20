@@ -1,0 +1,89 @@
+\documentclass[12pt,a4paper,parskip=half*,titlepage=false]{scrartcl}
+\title{Figures}
+\author{Bernd Panassiti}
+\usepackage{listings} % code within boxes
+\usepackage[colorlinks=true,bookmarksopen=true]{hyperref}
+\usepackage{enumitem} % used for any customization of list environment
+\usepackage[usenames,dvipsnames,svgnames,table]{xcolor} %\usepackage{color}
+\usepackage[T1]{fontenc}
+\usepackage{picins,graphicx}
+\usepackage{setspace} % line spacing
+\usepackage{rotating} % landscape orientation
+
+\begin{document}
+\title{Relationship between the body size of an insect vector, phytoplasma infection and disease occurrence along an elevational gradient}
+\author{Bernd Panassiti\thanks{for questions, please contact: \href{mailto:bernd.panassit@gmx.de}{bernd.panassiti@provinz.bz.it}}, Johannes Fahrentrapp, Florian Hartig, Michael Breuer, \and Robert Biedermann}
+\maketitle
+
+<<sessionInfo, echo=FALSE, eval=FALSE>>=
+sessionInfo()
+@
+\doublespacing % line spacing
+
+
+% page numbering, ensures first page without number, second with arbitrary choosen number
+\pagenumbering{arabic}
+\setcounter{page}{1} % second page will start with 1
+\thispagestyle{empty}
+
+\listoffigures
+
+% Sampling sites for Ho, Phy and BN
+\newpage
+\begin{figure}
+\includegraphics[scale=0.7, page=1]{Figure1.pdf}
+\caption[Sampling sites for \textit{Hyalesthes obsoletus}, \textit{Ca.} Phytoplasma solani and bois noir in the Baden region, SW-Germany]{\doublespacing Sampling sites for \textit{Hyalesthes obsoletus}, \textit{Ca.} Phytoplasma solani and bois noir in the Baden region, SW-Germany.}
+\label{fig:Figure1}
+\end{figure}
+
+% Altitudinal distribution of Ho, Phy and BN
+\iffalse
+Problem: figures does not show transparent rectangle
+1.Step: convert to ps (preview -> save as)
+2.Step: open in inkscape and save as pdf
+\fi
+
+\newpage
+\begin{figure}
+\includegraphics[scale=0.4, page=1]{Figure2.pdf}
+\caption[Elevational profile of \textit{Hyalesthes obsoletus}, \textit{Ca.} Phytoplasma solani infected \textit{H. obsoletus} and `bois noir' in the Baden region, SW-Germany]
+{\doublespacing Elevational profile of \textit{Hyalesthes obsoletus}, \textit{Ca.} Phytoplasma solani infected \textit{H. obsoletus} and the `bois noir' grapevine disease in the Baden region, SW-Germany. a) Complete elevational profile of insect vector and pathogen; b) Elevatinal profile for the insect vecor, pathogen and the disease for the vine growing area in Baden region. N\textsubscript{v} = number of sites, N\textsubscript{p} = number of insects subjected to real-time PCR analyses and N\textsubscript{d} = number of surveyed grapevines, respectively. * `bois noir' incidences scaled by multiplying by ten.}
+\label{fig:Figure2}
+\end{figure}
+
+
+% Altitudinal distribution of Ho body size
+\newpage
+\begin{figure}
+\includegraphics[scale=0.6, page=1]{Figure3.pdf}
+\caption[Body size distributions of \textit{Hyalesthes obsoletus} males and females]
+{\doublespacing Body size distributions of \textit{Hyalesthes obsoletus} males (N = 292) and females (N = 399) collected in the Baden region, SW-Germany.}
+\label{fig:Figure3}
+\end{figure}
+
+
+% Regressions
+\newpage
+\begin{figure}
+\includegraphics[scale=0.8, page=1]{Figure4.pdf}
+\caption[Influence on \textit{Hyalesthes obsoletus} body size]
+{\doublespacing Influence of elevation, gender and \textit{Ca.} Phytoplasma solani presence within \textit{Hyalesthes obsoletus} on \textit{H. obsoletus} body size (R\textsuperscript{2} = 0.54, p<0.001).}
+\label{fig:Figure4.1}
+\end{figure}
+
+\newpage
+\begin{figure}
+\includegraphics[scale=0.48, page=1]{Figure5.pdf}
+\caption[ Influence on \textit{Ca.} Phytoplasma solani]
+{\doublespacing Influence of \textit{Hyalesthes obsoletus} body size on a) \textit{Ca.} Phytoplasma solani presence (Nagelkerke R\textsuperscript{2}: 0.017; p <0.05; AUC: 0.58; N = 691) and b) relative \textit{Ca.} Phytoplasma solani quantities within \textit{H. obsoletus} (R\textsuperscript{2}: 0.1; p<0.01; N = 53).}
+\label{fig:Figure5}
+\end{figure}
+
+\begin{figure}
+\includegraphics[scale=0.25, page=1]{Figure6.pdf}
+\caption[Influence on bois noir]
+{\doublespacing Influence of \textit{Hyalesthes obsoletus} body size and elevation on bois noir (Nagelkerke R\textsuperscript{2}: 0.05, p<0.05, AUC: 0.71, N =228071).}
+\label{fig:Figure6}
+\end{figure}
+
+\end{document}
